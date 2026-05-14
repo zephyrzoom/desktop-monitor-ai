@@ -32,4 +32,4 @@ linux:
   target:
     - AppImage
   category: Utility
-npmRebuild: true
+npmRebuild: false
