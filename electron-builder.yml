@@ -1,5 +1,6 @@
 appId: com.desktop-monitor.app
 productName: Desktop Monitor
+asar: false
 directories:
   buildResources: build
 files:
