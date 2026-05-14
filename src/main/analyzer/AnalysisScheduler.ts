@@ -1,6 +1,7 @@
 import { DailyAnalyzer } from './DailyAnalyzer'
 import { SummaryGenerator } from './SummaryGenerator'
 import { getConfigValue } from '../config/store'
+import type { AnalysisProgress } from '../../shared/types/database'
 
 export class AnalysisScheduler {
   private dailyAnalyzer: DailyAnalyzer | null = null
@@ -27,7 +28,7 @@ export class AnalysisScheduler {
     this.initClients()
   }
 
-  async triggerDailyAnalysis(date?: string): Promise<boolean> {
+  async triggerDailyAnalysis(date?: string, onProgress?: (progress: AnalysisProgress) => void): Promise<boolean> {
     if (!this.dailyAnalyzer) {
       this.initClients()
       if (!this.dailyAnalyzer) return false
@@ -37,7 +38,7 @@ export class AnalysisScheduler {
 
     try {
       this.isRunning = true
-      const result = await this.dailyAnalyzer.analyze(targetDate)
+      const result = await this.dailyAnalyzer.analyze(targetDate, onProgress)
       this.isRunning = false
       return result !== null
     } catch (err) {

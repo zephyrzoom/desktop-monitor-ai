@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { MonitorManager } from './monitors/MonitorManager'
+import { AnalysisScheduler } from './analyzer/AnalysisScheduler'
 import { registerIpcHandlers } from './ipc/handlers'
 import { closeDatabase } from './database/connection'
 
@@ -10,6 +11,20 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
 const monitorManager = new MonitorManager()
+const analysisScheduler = new AnalysisScheduler()
+
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -123,32 +138,35 @@ function updateTrayMenu(): void {
   tray.setContextMenu(contextMenu)
 }
 
-app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.desktop-monitor')
+if (gotTheLock) {
+  app.whenReady().then(async () => {
+    electronApp.setAppUserModelId('com.desktop-monitor')
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
+
+    createWindow()
+    createTray()
+    registerIpcHandlers(monitorManager, analysisScheduler, mainWindow!)
+    analysisScheduler.start()
+
+    await monitorManager.startAll()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
 
-  registerIpcHandlers(monitorManager)
-  createWindow()
-  createTray()
-
-  await monitorManager.startAll()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  app.on('before-quit', async () => {
+    ;(app as any).isQuitting = true
+    await monitorManager.stopAll()
+    closeDatabase()
   })
-})
 
-app.on('before-quit', async () => {
-  ;(app as any).isQuitting = true
-  await monitorManager.stopAll()
-  closeDatabase()
-})
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+}

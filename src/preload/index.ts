@@ -9,10 +9,13 @@ import {
   DATA_PERIODIC_SUMMARY,
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
+  ANALYSIS_STATUS,
   CONFIG_GET,
   CONFIG_SET,
-  SYSTEM_OPEN_PATH
+  SYSTEM_OPEN_PATH,
+  SYSTEM_GET_SCREENSHOTS_DIR
 } from '../shared/constants/ipc-channels'
+import type { AnalysisProgress } from '../shared/types/database'
 
 const electronAPI = {
   getMonitorStatus: () => ipcRenderer.invoke(MONITOR_STATUS),
@@ -28,10 +31,21 @@ const electronAPI = {
 
   triggerAnalysis: (date: string) => ipcRenderer.invoke(ANALYSIS_TRIGGER, date),
 
+  onAnalysisProgress: (callback: (progress: AnalysisProgress) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: AnalysisProgress) => {
+      callback(progress)
+    }
+    ipcRenderer.on(ANALYSIS_STATUS, listener)
+    return () => {
+      ipcRenderer.removeListener(ANALYSIS_STATUS, listener)
+    }
+  },
+
   getConfig: () => ipcRenderer.invoke(CONFIG_GET),
   setConfig: (key: string, value: unknown) => ipcRenderer.invoke(CONFIG_SET, key, value),
 
-  openPath: (filePath: string) => ipcRenderer.invoke(SYSTEM_OPEN_PATH, filePath)
+  openPath: (filePath: string) => ipcRenderer.invoke(SYSTEM_OPEN_PATH, filePath),
+  getScreenshotsDir: () => ipcRenderer.invoke(SYSTEM_GET_SCREENSHOTS_DIR)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

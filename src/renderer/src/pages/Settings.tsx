@@ -5,6 +5,7 @@ interface Config {
     enabled: boolean
     screenshotIntervalMs: number
     windowPollIntervalMs: number
+    screenshotsDir: string
   }
   analysis: {
     apiKey: string
@@ -62,7 +63,7 @@ export function Settings(): React.JSX.Element {
     })
   }
 
-  function updateMonitoring(key: keyof Config['monitoring'], value: boolean | number): void {
+  function updateMonitoring(key: keyof Config['monitoring'], value: boolean | number | string): void {
     if (!config) return
     setConfig({
       ...config,
@@ -192,12 +193,13 @@ export function Settings(): React.JSX.Element {
         <div className="card-title">监控配置</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '4px' }}>定时截图间隔 (毫秒)</label>
+            <label style={{ display: 'block', marginBottom: '4px' }}>定时截图间隔 (分钟)</label>
             <input
               type="number"
-              min={60000}
-              value={config.monitoring.screenshotIntervalMs}
-              onChange={(e) => updateMonitoring('screenshotIntervalMs', parseInt(e.target.value))}
+              min={1}
+              step={1}
+              value={Math.round(config.monitoring.screenshotIntervalMs / 60000)}
+              onChange={(e) => updateMonitoring('screenshotIntervalMs', parseInt(e.target.value) * 60000)}
               style={{
                 width: '200px',
                 padding: '8px 12px',
@@ -207,6 +209,34 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>截图存储路径</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={config.monitoring.screenshotsDir}
+                placeholder="默认: 应用数据目录/screenshots"
+                onChange={(e) => updateMonitoring('screenshotsDir', e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  backgroundColor: 'var(--bg-primary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  color: 'var(--text-primary)'
+                }}
+              />
+              <button
+                className="button button-secondary"
+                onClick={async () => {
+                  const dir = await window.electronAPI.getScreenshotsDir()
+                  window.electronAPI.openPath(dir as string)
+                }}
+              >
+                打开文件夹
+              </button>
+            </div>
           </div>
         </div>
       </div>

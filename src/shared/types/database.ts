@@ -60,3 +60,9 @@ export interface PeriodicSummaryResult {
   work_categories: { category: string; percentage: number }[]
   summary: string
 }
+
+export interface AnalysisProgress {
+  step: string
+  current: number
+  total: number
+}

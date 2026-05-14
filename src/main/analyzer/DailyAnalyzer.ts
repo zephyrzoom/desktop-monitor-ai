@@ -7,7 +7,8 @@ import { getScreenshotsByDate } from '../database/queries/screenshots'
 import { getAppUsageSummaryByDate } from '../database/queries/activeWindows'
 import { insertOrUpdateDailyAnalysis } from '../database/queries/dailyAnalysis'
 import { buildDailyAnalysisPrompt, parseAnalysisResult } from './PromptBuilder'
-import type { Screenshot, DailyAnalysisResult } from '../../shared/types/database'
+import { getConfigValue } from '../config/store'
+import type { Screenshot, DailyAnalysisResult, AnalysisProgress } from '../../shared/types/database'
 
 export class DailyAnalyzer {
   private openai: OpenAI
@@ -18,7 +19,7 @@ export class DailyAnalyzer {
     this.maxScreenshotsPerBatch = maxScreenshotsPerBatch
   }
 
-  async analyze(date: string): Promise<DailyAnalysisResult | null> {
+  async analyze(date: string, onProgress?: (progress: AnalysisProgress) => void): Promise<DailyAnalysisResult | null> {
     const screenshots = getScreenshotsByDate(date)
     const appUsage = getAppUsageSummaryByDate(date)
 
@@ -26,14 +27,19 @@ export class DailyAnalyzer {
       return null
     }
 
+    onProgress?.({ step: '获取截图数据', current: 0, total: 0 })
+
     const sampledScreenshots = this.sampleScreenshots(screenshots)
     const batches = this.createBatches(sampledScreenshots)
+
+    onProgress?.({ step: `已准备 ${sampledScreenshots.length} 张截图，分为 ${batches.length} 批`, current: 0, total: 0 })
 
     const allWorkItems: DailyAnalysisResult['work_items'] = []
     let overallSummary = ''
 
-    for (const batch of batches) {
-      const result = await this.analyzeBatch(batch, appUsage, date)
+    for (let i = 0; i < batches.length; i++) {
+      onProgress?.({ step: `正在分析第 ${i + 1} 批，调用 AI 中...`, current: i + 1, total: batches.length })
+      const result = await this.analyzeBatch(batches[i], appUsage, date)
       if (result) {
         allWorkItems.push(...result.work_items)
         overallSummary = result.summary
@@ -43,6 +49,8 @@ export class DailyAnalyzer {
     if (allWorkItems.length === 0) {
       return null
     }
+
+    onProgress?.({ step: '正在保存分析结果...', current: 0, total: 0 })
 
     allWorkItems.sort((a, b) => a.time_range.localeCompare(b.time_range))
 
@@ -134,7 +142,8 @@ export class DailyAnalyzer {
   }
 
   private async prepareImages(screenshots: Screenshot[]): Promise<string[]> {
-    const screenshotsDir = path.join(app.getPath('userData'), 'screenshots')
+    const configDir = getConfigValue('monitoring').screenshotsDir
+    const screenshotsDir = configDir || path.join(app.getPath('userData'), 'screenshots')
     const results: string[] = []
 
     for (const screenshot of screenshots) {

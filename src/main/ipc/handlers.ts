@@ -1,5 +1,8 @@
-import { ipcMain, shell } from 'electron'
+import { ipcMain, shell, BrowserWindow, app } from 'electron'
+import fs from 'fs'
+import path from 'path'
 import { MonitorManager } from '../monitors/MonitorManager'
+import { AnalysisScheduler } from '../analyzer/AnalysisScheduler'
 import { getScreenshotsByDate, getScreenshotCountByDate } from '../database/queries/screenshots'
 import { getActiveWindowsByDate, getAppUsageSummaryByDate } from '../database/queries/activeWindows'
 import { getDailyAnalysisByDate, getAllDailyAnalysis } from '../database/queries/dailyAnalysis'
@@ -15,12 +18,19 @@ import {
   DATA_PERIODIC_SUMMARY,
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
+  ANALYSIS_STATUS,
   CONFIG_GET,
   CONFIG_SET,
-  SYSTEM_OPEN_PATH
+  SYSTEM_OPEN_PATH,
+  SYSTEM_GET_SCREENSHOTS_DIR
 } from '../../shared/constants/ipc-channels'
+import type { AnalysisProgress } from '../../shared/types/database'
 
-export function registerIpcHandlers(monitorManager: MonitorManager): void {
+export function registerIpcHandlers(
+  monitorManager: MonitorManager,
+  analysisScheduler: AnalysisScheduler,
+  mainWindow: BrowserWindow
+): void {
   ipcMain.handle(MONITOR_STATUS, () => {
     return monitorManager.getStatus()
   })
@@ -75,7 +85,17 @@ export function registerIpcHandlers(monitorManager: MonitorManager): void {
   })
 
   ipcMain.handle(ANALYSIS_TRIGGER, async (_event, date: string) => {
-    return { status: 'triggered', date }
+    const onProgress = (progress: AnalysisProgress) => {
+      mainWindow.webContents.send(ANALYSIS_STATUS, progress)
+    }
+
+    try {
+      const success = await analysisScheduler.triggerDailyAnalysis(date, onProgress)
+      return { status: success ? 'completed' : 'failed', date }
+    } catch (err) {
+      console.error('Analysis trigger failed:', err)
+      return { status: 'failed', date }
+    }
   })
 
   ipcMain.handle(CONFIG_GET, () => {
@@ -88,6 +108,14 @@ export function registerIpcHandlers(monitorManager: MonitorManager): void {
   })
 
   ipcMain.handle(SYSTEM_OPEN_PATH, (_event, filePath: string) => {
-    shell.openPath(filePath)
+    if (filePath) {
+      fs.mkdirSync(filePath, { recursive: true })
+      shell.openPath(filePath)
+    }
+  })
+
+  ipcMain.handle(SYSTEM_GET_SCREENSHOTS_DIR, () => {
+    const config = getFullConfig()
+    return config.monitoring.screenshotsDir || path.join(app.getPath('userData'), 'screenshots')
   })
 }

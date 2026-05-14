@@ -14,9 +14,9 @@ export class ScreenshotMonitor implements Monitor {
   private screenshotsDir: string
   private onScreenshotTaken?: (screenshotId: number) => void
 
-  constructor(timerIntervalMs = 10 * 60 * 1000) {
+  constructor(timerIntervalMs = 10 * 60 * 1000, screenshotsDir?: string) {
     this.timerIntervalMs = timerIntervalMs
-    this.screenshotsDir = path.join(app.getPath('userData'), 'screenshots')
+    this.screenshotsDir = screenshotsDir || path.join(app.getPath('userData'), 'screenshots')
   }
 
   setOnScreenshotTaken(callback: (screenshotId: number) => void): void {

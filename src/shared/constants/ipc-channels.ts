@@ -22,3 +22,4 @@ export const CONFIG_SET = 'config:set'
 
 // System
 export const SYSTEM_OPEN_PATH = 'system:openPath'
+export const SYSTEM_GET_SCREENSHOTS_DIR = 'system:getDefaultScreenshotsDir'

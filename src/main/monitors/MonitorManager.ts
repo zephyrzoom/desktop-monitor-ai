@@ -1,6 +1,7 @@
 import { ActiveWindowMonitor, type WindowChangeEvent } from './ActiveWindowMonitor'
 import { ScreenshotMonitor } from './ScreenshotMonitor'
 import { IdleDetector } from './IdleDetector'
+import { getConfigValue } from '../config/store'
 import type { MonitorStatus } from './types'
 
 export class MonitorManager {
@@ -10,8 +11,9 @@ export class MonitorManager {
   private isPaused = false
 
   constructor() {
-    this.activeWindowMonitor = new ActiveWindowMonitor(1000)
-    this.screenshotMonitor = new ScreenshotMonitor(10 * 60 * 1000)
+    const config = getConfigValue('monitoring')
+    this.activeWindowMonitor = new ActiveWindowMonitor(config.windowPollIntervalMs)
+    this.screenshotMonitor = new ScreenshotMonitor(config.screenshotIntervalMs, config.screenshotsDir || undefined)
     this.idleDetector = new IdleDetector()
 
     this.activeWindowMonitor.on('windowChanged', async (_event: WindowChangeEvent) => {

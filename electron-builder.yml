@@ -18,16 +18,7 @@ win:
   executableName: desktop-monitor
   icon: resources/icon.ico
   target:
-    - target: nsis
     - target: portable
-nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
-  oneClick: false
-  perMachine: false
-  allowToChangeInstallationDirectory: true
 mac:
   icon: resources/icon.png
   entitlementsInherit: build/entitlements.mac.plist

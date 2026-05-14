@@ -7,6 +7,7 @@ interface Config {
     enabled: boolean
     screenshotIntervalMs: number
     windowPollIntervalMs: number
+    screenshotsDir: string
   }
   analysis: {
     apiKey: string
@@ -24,7 +25,8 @@ const defaults: Config = {
   monitoring: {
     enabled: true,
     screenshotIntervalMs: 10 * 60 * 1000,
-    windowPollIntervalMs: 1000
+    windowPollIntervalMs: 1000,
+    screenshotsDir: ''
   },
   analysis: {
     apiKey: '',

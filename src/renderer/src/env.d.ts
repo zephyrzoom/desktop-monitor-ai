@@ -11,9 +11,11 @@ interface ElectronAPI {
   getTodayStats: (date: string) => Promise<unknown>
   triggerAnalysis: (date: string) => Promise<unknown>
   triggerPeriodicSummary: (periodLabel: string) => Promise<unknown>
+  onAnalysisProgress: (callback: (progress: { step: string; current: number; total: number }) => void) => () => void
   getConfig: () => Promise<unknown>
   setConfig: (key: string, value: unknown) => Promise<unknown>
   openPath: (filePath: string) => Promise<void>
+  getScreenshotsDir: () => Promise<string>
 }
 
 interface Window {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { MonitorStatus } from '../components/MonitorStatus'
 import { WorkItemList } from '../components/WorkItemList'
-import type { DailyAnalysisResult } from '../../../shared/types/database'
+import type { DailyAnalysisResult, AnalysisProgress } from '../../../shared/types/database'
 
 interface TodayStats {
   screenshots: number
@@ -17,11 +17,20 @@ export function Today(): React.JSX.Element {
     isPaused: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
 
   const today = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
     loadData()
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onAnalysisProgress((progress) => {
+      setAnalysisProgress(progress)
+    })
+    return unsubscribe
   }, [])
 
   async function loadData(): Promise<void> {
@@ -50,9 +59,15 @@ export function Today(): React.JSX.Element {
   }
 
   async function handleAnalyze(): Promise<void> {
-    setLoading(true)
-    await window.electronAPI.triggerAnalysis(today)
-    await loadData()
+    setAnalyzing(true)
+    setAnalysisProgress(null)
+    try {
+      await window.electronAPI.triggerAnalysis(today)
+    } finally {
+      setAnalyzing(false)
+      setAnalysisProgress(null)
+      await loadData()
+    }
   }
 
   if (loading) {
@@ -99,10 +114,37 @@ export function Today(): React.JSX.Element {
       )}
 
       <div style={{ marginBottom: '24px' }}>
-        <button className="button button-primary" onClick={handleAnalyze}>
-          立即分析今日工作
+        <button className="button button-primary" onClick={handleAnalyze} disabled={analyzing}>
+          {analyzing ? '分析中...' : '立即分析今日工作'}
         </button>
       </div>
+
+      {analyzing && (
+        <div className="analysis-progress">
+          <div className="analysis-progress-header">
+            <div className="analysis-spinner"></div>
+            <span>正在分析...</span>
+          </div>
+          {analysisProgress && (
+            <div className="analysis-progress-detail">
+              <span>{analysisProgress.step}</span>
+              {analysisProgress.total > 0 && (
+                <div className="analysis-progress-bar-wrapper">
+                  <div
+                    className="analysis-progress-bar"
+                    style={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}
+                  />
+                </div>
+              )}
+              {analysisProgress.total > 0 && (
+                <span className="analysis-progress-count">
+                  {analysisProgress.current} / {analysisProgress.total}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {analysisResult && (
         <>
