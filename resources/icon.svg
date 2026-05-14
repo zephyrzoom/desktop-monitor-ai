@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="#1a1a2e"/>
+
+  <!-- Monitor body -->
+  <rect x="48" y="40" width="160" height="120" rx="12" fill="#2d2d4e" stroke="#4f6ef7" stroke-width="4"/>
+
+  <!-- Screen -->
+  <rect x="60" y="52" width="136" height="96" rx="4" fill="#0d1117"/>
+
+  <!-- Screen content - abstract data visualization -->
+  <path d="M72 120 L88 90 L104 105 L120 75 L136 95 L152 65 L168 85 L184 70" stroke="#4f6ef7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Data points -->
+  <circle cx="88" cy="90" r="4" fill="#4f6ef7"/>
+  <circle cx="120" cy="75" r="4" fill="#4f6ef7"/>
+  <circle cx="152" cy="65" r="4" fill="#4f6ef7"/>
+  <circle cx="184" cy="70" r="4" fill="#4f6ef7"/>
+
+  <!-- AI Brain symbol in top right of screen -->
+  <g transform="translate(150, 58)">
+    <circle cx="0" cy="0" r="12" fill="#4f6ef7" opacity="0.8"/>
+    <path d="M-6 0 C-6 -4 -3 -6 0 -6 C3 -6 6 -4 6 0 C6 4 3 6 0 6 C-3 6 -6 4 -6 0" stroke="white" stroke-width="1.5" fill="none"/>
+    <circle cx="-2" cy="-2" r="1" fill="white"/>
+    <circle cx="2" cy="-2" r="1" fill="white"/>
+    <path d="M-3 2 Q0 5 3 2" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Monitor stand -->
+  <rect x="108" y="160" width="40" height="20" rx="2" fill="#2d2d4e"/>
+
+  <!-- Monitor base -->
+  <rect x="88" y="180" width="80" height="8" rx="4" fill="#2d2d4e"/>
+
+  <!-- Scanning line effect -->
+  <rect x="60" y="52" width="136" height="2" fill="#4f6ef7" opacity="0.6">
+    <animate attributeName="y" values="52;148;52" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- Corner brackets - monitoring indicator -->
+  <path d="M60 52 L60 68 M60 52 L76 52" stroke="#4f6ef7" stroke-width="3" stroke-linecap="round"/>
+  <path d="M196 52 L196 68 M196 52 L180 52" stroke="#4f6ef7" stroke-width="3" stroke-linecap="round"/>
+  <path d="M60 148 L60 132 M60 148 L76 148" stroke="#4f6ef7" stroke-width="3" stroke-linecap="round"/>
+  <path d="M196 148 L196 132 M196 148 L180 148" stroke="#4f6ef7" stroke-width="3" stroke-linecap="round"/>
+</svg>

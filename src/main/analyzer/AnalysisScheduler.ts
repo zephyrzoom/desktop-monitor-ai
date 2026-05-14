@@ -1,0 +1,105 @@
+import { DailyAnalyzer } from './DailyAnalyzer'
+import { SummaryGenerator } from './SummaryGenerator'
+import { getConfigValue } from '../config/store'
+
+export class AnalysisScheduler {
+  private dailyAnalyzer: DailyAnalyzer | null = null
+  private summaryGenerator: SummaryGenerator | null = null
+  private schedulerInterval: ReturnType<typeof setInterval> | null = null
+  private isRunning = false
+
+  start(): void {
+    this.initClients()
+
+    this.schedulerInterval = setInterval(() => this.checkAndRun(), 60 * 1000)
+
+    this.checkAndRun()
+  }
+
+  stop(): void {
+    if (this.schedulerInterval) {
+      clearInterval(this.schedulerInterval)
+      this.schedulerInterval = null
+    }
+  }
+
+  updateConfig(): void {
+    this.initClients()
+  }
+
+  async triggerDailyAnalysis(date?: string): Promise<boolean> {
+    if (!this.dailyAnalyzer) {
+      this.initClients()
+      if (!this.dailyAnalyzer) return false
+    }
+
+    const targetDate = date || new Date().toISOString().split('T')[0]
+
+    try {
+      this.isRunning = true
+      const result = await this.dailyAnalyzer.analyze(targetDate)
+      this.isRunning = false
+      return result !== null
+    } catch (err) {
+      console.error('Daily analysis failed:', err)
+      this.isRunning = false
+      return false
+    }
+  }
+
+  async triggerPeriodicSummary(
+    periodType: 'quarter' | 'year',
+    year: number,
+    quarter?: number
+  ): Promise<boolean> {
+    if (!this.summaryGenerator) {
+      this.initClients()
+      if (!this.summaryGenerator) return false
+    }
+
+    try {
+      this.isRunning = true
+      let result
+
+      if (periodType === 'quarter' && quarter) {
+        result = await this.summaryGenerator.generateQuarterly(year, quarter)
+      } else if (periodType === 'year') {
+        result = await this.summaryGenerator.generateYearly(year)
+      }
+
+      this.isRunning = false
+      return result !== null
+    } catch (err) {
+      console.error('Periodic summary failed:', err)
+      this.isRunning = false
+      return false
+    }
+  }
+
+  private initClients(): void {
+    const config = getConfigValue('analysis')
+
+    if (config.apiKey) {
+      this.dailyAnalyzer = new DailyAnalyzer(
+        config.apiKey,
+        config.baseUrl,
+        config.model,
+        config.maxScreenshotsPerBatch
+      )
+      this.summaryGenerator = new SummaryGenerator(config.apiKey, config.baseUrl)
+    }
+  }
+
+  private checkAndRun(): void {
+    if (this.isRunning) return
+
+    const config = getConfigValue('analysis')
+    const now = new Date()
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
+    if (currentTime === config.scheduleTime) {
+      const today = now.toISOString().split('T')[0]
+      this.triggerDailyAnalysis(today)
+    }
+  }
+}
