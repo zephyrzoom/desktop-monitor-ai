@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: npm run build:win
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -36,7 +36,7 @@ jobs:
           name: windows-build
           path: |
             dist/*.exe
-            dist/*.zip
+          if-no-files-found: error
 
   release:
     needs: build-windows
@@ -52,8 +52,6 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/*.exe
-            dist/*.zip
+          files: dist/*.exe
           draft: false
           prerelease: false
