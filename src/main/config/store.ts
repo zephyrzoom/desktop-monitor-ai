@@ -7,6 +7,7 @@ interface Config {
     enabled: boolean
     screenshotIntervalMs: number
     windowPollIntervalMs: number
+    windowChangeDebounceSec: number
     screenshotsDir: string
   }
   analysis: {
@@ -26,6 +27,7 @@ const defaults: Config = {
     enabled: true,
     screenshotIntervalMs: 10 * 60 * 1000,
     windowPollIntervalMs: 1000,
+    windowChangeDebounceSec: 3,
     screenshotsDir: ''
   },
   analysis: {

@@ -5,6 +5,7 @@ interface Config {
     enabled: boolean
     screenshotIntervalMs: number
     windowPollIntervalMs: number
+    windowChangeDebounceSec: number
     screenshotsDir: string
   }
   analysis: {
@@ -200,6 +201,24 @@ export function Settings(): React.JSX.Element {
               step={1}
               value={Math.round(config.monitoring.screenshotIntervalMs / 60000)}
               onChange={(e) => updateMonitoring('screenshotIntervalMs', parseInt(e.target.value) * 60000)}
+              style={{
+                width: '200px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)'
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>窗口切换防抖时间（秒）</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={config.monitoring.windowChangeDebounceSec}
+              onChange={(e) => updateMonitoring('windowChangeDebounceSec', parseInt(e.target.value))}
               style={{
                 width: '200px',
                 padding: '8px 12px',

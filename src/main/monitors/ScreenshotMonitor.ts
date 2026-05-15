@@ -2,8 +2,10 @@ import { desktopCapturer } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { app } from 'electron'
+import sharp from 'sharp'
 import type { Monitor, MonitorStatus } from './types'
-import { insertScreenshot } from '../database/queries/screenshots'
+import { insertScreenshot, getScreenshotsBeforeDate, deleteScreenshotsBeforeDate } from '../database/queries/screenshots'
+import { getConfigValue } from '../config/store'
 
 export class ScreenshotMonitor implements Monitor {
   name = 'screenshot'
@@ -29,7 +31,44 @@ export class ScreenshotMonitor implements Monitor {
     this.status = 'running'
     fs.mkdirSync(this.screenshotsDir, { recursive: true })
 
+    this.cleanup()
+
     this.timerInterval = setInterval(() => this.captureScreenshot('timer'), this.timerIntervalMs)
+  }
+
+  private cleanup(): void {
+    try {
+      const retentionDays = getConfigValue('cleanup').retentionDays
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - retentionDays)
+      const cutoffDate = cutoff.toISOString().split('T')[0]
+
+      const expired = getScreenshotsBeforeDate(cutoffDate)
+      for (const s of expired) {
+        const filePath = path.join(this.screenshotsDir, s.file_path)
+        try {
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+        } catch {}
+      }
+
+      const deleted = deleteScreenshotsBeforeDate(cutoffDate)
+      if (deleted > 0) {
+        console.log(`Cleanup: removed ${deleted} screenshots before ${cutoffDate}`)
+      }
+
+      // Remove empty date directories
+      try {
+        const entries = fs.readdirSync(this.screenshotsDir)
+        for (const entry of entries) {
+          const entryPath = path.join(this.screenshotsDir, entry)
+          if (fs.statSync(entryPath).isDirectory() && entry < cutoffDate) {
+            fs.rmSync(entryPath, { recursive: true, force: true })
+          }
+        }
+      } catch {}
+    } catch (err) {
+      console.error('Cleanup failed:', err)
+    }
   }
 
   async stop(): Promise<void> {
@@ -60,13 +99,14 @@ export class ScreenshotMonitor implements Monitor {
       const now = new Date()
       const dateStr = now.toISOString().split('T')[0]
       const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
-      const fileName = `${timeStr}_${triggerType}.png`
+      const fileName = `${timeStr}_${triggerType}.jpg`
 
       const dateDir = path.join(this.screenshotsDir, dateStr)
       fs.mkdirSync(dateDir, { recursive: true })
 
       const filePath = path.join(dateDir, fileName)
-      const buffer = source.thumbnail.toPNG()
+      const pngBuffer = source.thumbnail.toPNG()
+      const buffer = await sharp(pngBuffer).jpeg({ quality: 80 }).toBuffer()
       fs.writeFileSync(filePath, buffer)
 
       const screenshotId = insertScreenshot(

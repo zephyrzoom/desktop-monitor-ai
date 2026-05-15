@@ -61,3 +61,14 @@ export function deleteScreenshotsBeforeDate(date: string): number {
     .run(date)
   return result.changes
 }
+
+export function getScreenshotsBeforeDate(date: string): Screenshot[] {
+  const db = getDatabase()
+  return db
+    .prepare(
+      `SELECT * FROM screenshots
+       WHERE date(timestamp) < ?
+       ORDER BY timestamp ASC`
+    )
+    .all(date) as Screenshot[]
+}

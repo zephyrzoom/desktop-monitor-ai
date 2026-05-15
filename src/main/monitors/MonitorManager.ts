@@ -9,20 +9,27 @@ export class MonitorManager {
   private screenshotMonitor: ScreenshotMonitor
   private idleDetector: IdleDetector
   private isPaused = false
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private debounceMs: number
 
   constructor() {
     const config = getConfigValue('monitoring')
     this.activeWindowMonitor = new ActiveWindowMonitor(config.windowPollIntervalMs)
     this.screenshotMonitor = new ScreenshotMonitor(config.screenshotIntervalMs, config.screenshotsDir || undefined)
     this.idleDetector = new IdleDetector()
+    this.debounceMs = (config.windowChangeDebounceSec ?? 3) * 1000
 
-    this.activeWindowMonitor.on('windowChanged', async (_event: WindowChangeEvent) => {
+    this.activeWindowMonitor.on('windowChanged', (_event: WindowChangeEvent) => {
       if (this.isPaused) return
 
-      const screenshotId = await this.screenshotMonitor.captureScreenshot('window_change')
-      if (screenshotId) {
-        this.activeWindowMonitor.setCurrentScreenshotId(screenshotId)
-      }
+      if (this.debounceTimer) clearTimeout(this.debounceTimer)
+      this.debounceTimer = setTimeout(async () => {
+        this.debounceTimer = null
+        const screenshotId = await this.screenshotMonitor.captureScreenshot('window_change')
+        if (screenshotId) {
+          this.activeWindowMonitor.setCurrentScreenshotId(screenshotId)
+        }
+      }, this.debounceMs)
     })
 
     this.activeWindowMonitor.on('error', (err) => {
@@ -45,6 +52,10 @@ export class MonitorManager {
   }
 
   async stopAll(): Promise<void> {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
+      this.debounceTimer = null
+    }
     await this.activeWindowMonitor.stop()
     await this.screenshotMonitor.stop()
   }

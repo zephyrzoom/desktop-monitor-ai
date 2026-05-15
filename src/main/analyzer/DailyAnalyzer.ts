@@ -121,7 +121,7 @@ export class DailyAnalyzer {
       for (const base64 of base64Images) {
         content.push({
           type: 'image_url',
-          image_url: { url: `data:image/png;base64,${base64}`, detail: 'low' }
+          image_url: { url: `data:image/jpeg;base64,${base64}`, detail: 'low' }
         })
       }
 
@@ -151,7 +151,7 @@ export class DailyAnalyzer {
         const filePath = path.join(screenshotsDir, screenshot.file_path)
         if (!fs.existsSync(filePath)) continue
 
-        const buffer = await sharp(filePath).resize(1280, 720, { fit: 'inside' }).png().toBuffer()
+        const buffer = await sharp(filePath).resize(1280, 720, { fit: 'inside' }).jpeg().toBuffer()
 
         results.push(buffer.toString('base64'))
       } catch (err) {
