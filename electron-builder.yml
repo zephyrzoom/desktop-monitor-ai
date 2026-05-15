@@ -1,6 +1,5 @@
 appId: com.desktop-monitor.app
 productName: Desktop Monitor
-asar: false
 directories:
   buildResources: build
 files:
@@ -33,4 +32,4 @@ linux:
   target:
     - AppImage
   category: Utility
-npmRebuild: false
+npmRebuild: true
