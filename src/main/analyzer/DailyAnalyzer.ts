@@ -65,7 +65,9 @@ export class DailyAnalyzer {
   }
 
   private sampleScreenshots(screenshots: Screenshot[]): Screenshot[] {
-    if (screenshots.length <= this.maxScreenshotsPerBatch * 3) {
+    const maxTotal = 50
+
+    if (screenshots.length <= maxTotal) {
       return screenshots
     }
 
@@ -74,16 +76,20 @@ export class DailyAnalyzer {
 
     const sampled: Screenshot[] = []
 
-    for (const s of windowChangeScreenshots) {
-      if (sampled.length < this.maxScreenshotsPerBatch * 3) {
-        sampled.push(s)
+    const windowCap = Math.min(windowChangeScreenshots.length, Math.ceil(maxTotal * 0.6))
+    if (windowChangeScreenshots.length <= windowCap) {
+      sampled.push(...windowChangeScreenshots)
+    } else {
+      const step = Math.max(1, Math.floor(windowChangeScreenshots.length / windowCap))
+      for (let i = 0; i < windowChangeScreenshots.length && sampled.length < windowCap; i += step) {
+        sampled.push(windowChangeScreenshots[i])
       }
     }
 
-    const remaining = this.maxScreenshotsPerBatch * 3 - sampled.length
+    const remaining = maxTotal - sampled.length
     if (remaining > 0 && timerScreenshots.length > 0) {
       const step = Math.max(1, Math.floor(timerScreenshots.length / remaining))
-      for (let i = 0; i < timerScreenshots.length && sampled.length < this.maxScreenshotsPerBatch * 3; i += step) {
+      for (let i = 0; i < timerScreenshots.length && sampled.length < maxTotal; i += step) {
         sampled.push(timerScreenshots[i])
       }
     }
