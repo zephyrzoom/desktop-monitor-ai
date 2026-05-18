@@ -65,36 +65,7 @@ export class DailyAnalyzer {
   }
 
   private sampleScreenshots(screenshots: Screenshot[]): Screenshot[] {
-    const maxTotal = 50
-
-    if (screenshots.length <= maxTotal) {
-      return screenshots
-    }
-
-    const windowChangeScreenshots = screenshots.filter((s) => s.trigger_type === 'window_change')
-    const timerScreenshots = screenshots.filter((s) => s.trigger_type === 'timer')
-
-    const sampled: Screenshot[] = []
-
-    const windowCap = Math.min(windowChangeScreenshots.length, Math.ceil(maxTotal * 0.6))
-    if (windowChangeScreenshots.length <= windowCap) {
-      sampled.push(...windowChangeScreenshots)
-    } else {
-      const step = Math.max(1, Math.floor(windowChangeScreenshots.length / windowCap))
-      for (let i = 0; i < windowChangeScreenshots.length && sampled.length < windowCap; i += step) {
-        sampled.push(windowChangeScreenshots[i])
-      }
-    }
-
-    const remaining = maxTotal - sampled.length
-    if (remaining > 0 && timerScreenshots.length > 0) {
-      const step = Math.max(1, Math.floor(timerScreenshots.length / remaining))
-      for (let i = 0; i < timerScreenshots.length && sampled.length < maxTotal; i += step) {
-        sampled.push(timerScreenshots[i])
-      }
-    }
-
-    return sampled.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+    return screenshots.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }
 
   private createBatches(screenshots: Screenshot[]): Screenshot[][] {
