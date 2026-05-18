@@ -113,6 +113,37 @@ export function parseAnalysisResult(content: string): DailyAnalysisResult | null
   }
 }
 
+export function buildConsolidationPrompt(workItems: WorkItem[]): string {
+  const workItemsText = workItems
+    .map((item) => `- ${item.time_range}: ${item.activity} (${item.app}, ${item.category})`)
+    .join('\n')
+
+  return `你是一个工作内容分析助手。以下是一天中识别出的工作内容列表，请将相同主题的工作内容合并为一条。
+
+工作内容列表:
+${workItemsText}
+
+合并规则:
+- 相邻或相近时间段内、同一应用、同一主题的工作内容应合并为一条
+- 合并后的 time_range 应覆盖原始各项的完整时间段（如 14:00-14:30 和 14:30-15:00 合并为 14:00-15:00）
+- 合并后的 activity 应概括所有原始项的内容，用更精炼的描述
+- 不同应用或不同主题的工作内容不要合并
+- 如果没有可以合并的项目，原样返回
+
+返回严格的 JSON 格式，不要包含任何其他文字:
+
+{
+  "work_items": [
+    {
+      "time_range": "14:00-15:30",
+      "activity": "编写用户登录模块（含验证逻辑和bug修复）",
+      "app": "VS Code",
+      "category": "编程开发"
+    }
+  ]
+}`
+}
+
 export function buildSummaryPrompt(
   workItems: WorkItem[],
   appUsageSummary: { app_name: string; total_duration_ms: number; count: number }[]

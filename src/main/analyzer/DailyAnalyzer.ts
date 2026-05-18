@@ -6,7 +6,7 @@ import { app } from 'electron'
 import { getScreenshotsByDate } from '../database/queries/screenshots'
 import { getAppUsageSummaryByDate, getAppUsageSummaryByTimeRange } from '../database/queries/activeWindows'
 import { insertOrUpdateDailyAnalysis } from '../database/queries/dailyAnalysis'
-import { buildDailyAnalysisPrompt, buildSummaryPrompt, parseAnalysisResult } from './PromptBuilder'
+import { buildDailyAnalysisPrompt, buildConsolidationPrompt, buildSummaryPrompt, parseAnalysisResult } from './PromptBuilder'
 import { getConfigValue } from '../config/store'
 import type { Screenshot, DailyAnalysisResult, AnalysisProgress, WorkItem } from '../../shared/types/database'
 
@@ -62,14 +62,18 @@ export class DailyAnalyzer {
       return null
     }
 
-    onProgress?.({ step: '正在生成工作总结...', current: 0, total: 0 })
+    onProgress?.({ step: '正在合并同类工作内容...', current: 0, total: 0 })
 
     allWorkItems.sort((a, b) => a.time_range.localeCompare(b.time_range))
 
-    const overallSummary = await this.generateOverallSummary(allWorkItems, appUsage, date)
+    const consolidatedItems = await this.consolidateWorkItems(allWorkItems)
+
+    onProgress?.({ step: '正在生成工作总结...', current: 0, total: 0 })
+
+    const overallSummary = await this.generateOverallSummary(consolidatedItems, appUsage, date)
 
     const finalResult: DailyAnalysisResult = {
-      work_items: allWorkItems,
+      work_items: consolidatedItems,
       summary: overallSummary
     }
 
@@ -199,6 +203,38 @@ export class DailyAnalyzer {
     } catch (err) {
       console.error('Summary generation error:', err)
       return '工作总结生成失败'
+    }
+  }
+
+  private async consolidateWorkItems(workItems: WorkItem[]): Promise<WorkItem[]> {
+    if (workItems.length <= 1) return workItems
+
+    try {
+      const prompt = buildConsolidationPrompt(workItems)
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2000
+      })
+
+      const responseContent = response.choices[0]?.message?.content
+      if (!responseContent) return workItems
+
+      const jsonMatch = responseContent.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) return workItems
+
+      const result = JSON.parse(jsonMatch[0])
+      if (!result.work_items || !Array.isArray(result.work_items)) return workItems
+
+      return result.work_items.map((item: Record<string, unknown>) => ({
+        time_range: String(item.time_range || ''),
+        activity: String(item.activity || ''),
+        app: String(item.app || ''),
+        category: String(item.category || '其他')
+      }))
+    } catch (err) {
+      console.error('Work items consolidation error:', err)
+      return workItems
     }
   }
 
