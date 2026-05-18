@@ -58,6 +58,24 @@ export function getAppUsageSummaryByDate(
     .all(date) as { app_name: string; total_duration_ms: number; count: number }[]
 }
 
+export function getAppUsageSummaryByTimeRange(
+  startTime: string,
+  endTime: string
+): { app_name: string; total_duration_ms: number; count: number }[] {
+  const db = getDatabase()
+  return db
+    .prepare(
+      `SELECT app_name,
+              SUM(duration_ms) as total_duration_ms,
+              COUNT(*) as count
+       FROM active_windows
+       WHERE timestamp >= ? AND timestamp <= ?
+       GROUP BY app_name
+       ORDER BY total_duration_ms DESC`
+    )
+    .all(startTime, endTime) as { app_name: string; total_duration_ms: number; count: number }[]
+}
+
 export function deleteActiveWindowsBeforeDate(date: string): number {
   const db = getDatabase()
   const result = db

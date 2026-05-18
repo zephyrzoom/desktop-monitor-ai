@@ -16,6 +16,7 @@ interface Config {
     model: string
     scheduleTime: string
     maxScreenshotsPerBatch: number
+    gapThresholdMinutes: number
   }
   cleanup: {
     retentionDays: number
@@ -35,7 +36,8 @@ const defaults: Config = {
     baseUrl: 'https://api.openai.com/v1',
     model: 'gpt-4o',
     scheduleTime: '23:00',
-    maxScreenshotsPerBatch: 5
+    maxScreenshotsPerBatch: 15,
+    gapThresholdMinutes: 15
   },
   cleanup: {
     retentionDays: 30

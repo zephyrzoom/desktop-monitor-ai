@@ -1,8 +1,9 @@
-import type { DailyAnalysisResult } from '../../shared/types/database'
+import type { DailyAnalysisResult, WorkItem } from '../../shared/types/database'
 
 export function buildDailyAnalysisPrompt(
   appUsageSummary: { app_name: string; total_duration_ms: number; count: number }[],
-  timeRange: { start: string; end: string }
+  timeRange: { start: string; end: string },
+  priorWorkItems?: WorkItem[]
 ): string {
   const appUsageText = appUsageSummary
     .map((app) => {
@@ -11,13 +12,18 @@ export function buildDailyAnalysisPrompt(
     })
     .join('\n')
 
+  const priorContext =
+    priorWorkItems && priorWorkItems.length > 0
+      ? `\n之前已识别的工作内容（请避免重复）:\n${priorWorkItems.map((item) => `- ${item.time_range}: ${item.activity} (${item.app})`).join('\n')}\n`
+      : ''
+
   return `你是一个工作内容分析助手。根据以下桌面截图和应用使用记录，分析用户在这段时间内做了什么工作。
 
 时间范围: ${timeRange.start} - ${timeRange.end}
 
 应用使用记录:
 ${appUsageText || '无应用使用记录'}
-
+${priorContext}
 请分析这些截图，识别用户的具体工作内容。返回严格的 JSON 格式，不要包含任何其他文字:
 
 {
@@ -29,14 +35,15 @@ ${appUsageText || '无应用使用记录'}
       "category": "编程开发"
     }
   ],
-  "summary": "今天主要完成了..."
+  "summary": "这段时间主要完成了..."
 }
 
 注意:
 - work_items 中的 activity 要具体描述用户在做什么，不要泛泛而谈
 - category 可以是: 编程开发、文档写作、数据分析、会议沟通、网页浏览、设计工作、学习研究、邮件处理、其他
 - 如果截图内容不清晰或无法判断，请基于应用使用记录推测
-- summary 用一两句话概括今天的主要工作`
+- 如果这段时间与之前的工作内容相关联，请确保你的分析在时间和活动上与已有内容保持连贯
+- summary 用一两句话概括这段时间内的主要工作内容`
 }
 
 export function buildPeriodicSummaryPrompt(
@@ -104,4 +111,30 @@ export function parseAnalysisResult(content: string): DailyAnalysisResult | null
   } catch {
     return null
   }
+}
+
+export function buildSummaryPrompt(
+  workItems: WorkItem[],
+  appUsageSummary: { app_name: string; total_duration_ms: number; count: number }[]
+): string {
+  const workItemsText = workItems
+    .map((item) => `- ${item.time_range}: ${item.activity} (${item.app}, ${item.category})`)
+    .join('\n')
+
+  const appUsageText = appUsageSummary
+    .map((app) => {
+      const minutes = Math.round(app.total_duration_ms / 60000)
+      return `- ${app.app_name}: ${minutes}分钟`
+    })
+    .join('\n')
+
+  return `你是一个工作内容分析助手。根据以下今日工作记录和应用使用统计，生成一份简洁的工作总结。
+
+工作记录:
+${workItemsText}
+
+应用使用统计:
+${appUsageText}
+
+请用 2-3 句话总结今天的主要工作内容和产出。只返回总结文字，不需要 JSON 格式。`
 }

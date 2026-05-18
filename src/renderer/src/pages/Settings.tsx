@@ -14,6 +14,7 @@ interface Config {
     model: string
     scheduleTime: string
     maxScreenshotsPerBatch: number
+    gapThresholdMinutes: number
   }
   cleanup: {
     retentionDays: number
@@ -174,9 +175,27 @@ export function Settings(): React.JSX.Element {
             <input
               type="number"
               min={1}
-              max={10}
+              max={30}
               value={config.analysis.maxScreenshotsPerBatch}
               onChange={(e) => updateAnalysis('maxScreenshotsPerBatch', parseInt(e.target.value))}
+              style={{
+                width: '100px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)'
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>分批间隔（分钟）</label>
+            <input
+              type="number"
+              min={5}
+              max={60}
+              value={config.analysis.gapThresholdMinutes}
+              onChange={(e) => updateAnalysis('gapThresholdMinutes', parseInt(e.target.value))}
               style={{
                 width: '100px',
                 padding: '8px 12px',
