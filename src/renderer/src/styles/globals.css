@@ -194,6 +194,29 @@ body {
   line-height: 1.8;
 }
 
+.summary-list {
+  list-style: none;
+  counter-reset: summary-counter;
+  padding: 0;
+}
+
+.summary-list li {
+  counter-increment: summary-counter;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  padding-left: 28px;
+  position: relative;
+  margin-bottom: 4px;
+}
+
+.summary-list li::before {
+  content: counter(summary-counter) ".";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .button {
   padding: 10px 20px;
   border: none;

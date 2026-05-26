@@ -51,7 +51,7 @@ export interface WorkItem {
 
 export interface DailyAnalysisResult {
   work_items: WorkItem[]
-  summary: string
+  summary: string[]
 }
 
 export interface PeriodicSummaryResult {

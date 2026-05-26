@@ -149,7 +149,11 @@ export function Today(): React.JSX.Element {
       {analysisResult && (
         <>
           <div className="summary-box">
-            <p>{analysisResult.summary}</p>
+            <ol className="summary-list">
+              {analysisResult.summary.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ol>
           </div>
           <h3 style={{ marginBottom: '16px' }}>工作内容</h3>
           <WorkItemList workItems={analysisResult.work_items} />

@@ -45,7 +45,7 @@ export class SummaryGenerator {
         const result = JSON.parse(d.result_json)
         return {
           date: d.date,
-          summary: result.summary || ''
+          summary: Array.isArray(result.summary) ? result.summary : [result.summary || '']
         }
       })
 

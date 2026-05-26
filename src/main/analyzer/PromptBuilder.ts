@@ -47,11 +47,11 @@ ${priorContext}
 }
 
 export function buildPeriodicSummaryPrompt(
-  dailyAnalyses: { date: string; summary: string }[],
+  dailyAnalyses: { date: string; summary: string[] }[],
   periodType: 'quarter' | 'year',
   periodLabel: string
 ): string {
-  const dailyText = dailyAnalyses.map((d) => `${d.date}: ${d.summary}`).join('\n')
+  const dailyText = dailyAnalyses.map((d) => `${d.date}: ${d.summary.join('；')}`).join('\n')
 
   const periodName = periodType === 'quarter' ? '季度' : '年度'
 
@@ -97,7 +97,7 @@ export function parseAnalysisResult(content: string): DailyAnalysisResult | null
     const result = JSON.parse(jsonMatch[0])
 
     if (!result.work_items || !Array.isArray(result.work_items)) return null
-    if (!result.summary || typeof result.summary !== 'string') return null
+    if (!result.summary || !Array.isArray(result.summary)) return null
 
     return {
       work_items: result.work_items.map((item: Record<string, unknown>) => ({
@@ -106,7 +106,7 @@ export function parseAnalysisResult(content: string): DailyAnalysisResult | null
         app: String(item.app || ''),
         category: String(item.category || '其他')
       })),
-      summary: result.summary
+      summary: result.summary.map((s: unknown) => String(s))
     }
   } catch {
     return null
@@ -167,5 +167,9 @@ ${workItemsText}
 应用使用统计:
 ${appUsageText}
 
-请用 2-3 句话总结今天的主要工作内容和产出。只返回总结文字，不需要 JSON 格式。`
+请按主题列出今天的主要工作内容和产出，每个主题一行，用 JSON 数组格式返回。例如：
+
+["完成了用户登录模块的开发和测试", "参加了产品需求评审会议", "处理了3个线上bug"]
+
+只返回 JSON 数组，不需要其他文字。`
 }

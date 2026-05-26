@@ -191,7 +191,7 @@ export class DailyAnalyzer {
     workItems: WorkItem[],
     fullDayAppUsage: { app_name: string; total_duration_ms: number; count: number }[],
     _date: string
-  ): Promise<string> {
+  ): Promise<string[]> {
     try {
       const prompt = buildSummaryPrompt(workItems, fullDayAppUsage)
       const response = await this.openai.chat.completions.create({
@@ -199,10 +199,18 @@ export class DailyAnalyzer {
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 500
       })
-      return response.choices[0]?.message?.content || '无法生成工作总结'
+      const content = response.choices[0]?.message?.content || '[]'
+      const jsonMatch = content.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (Array.isArray(parsed)) {
+          return parsed.map((s: unknown) => String(s))
+        }
+      }
+      return ['无法生成工作总结']
     } catch (err) {
       console.error('Summary generation error:', err)
-      return '工作总结生成失败'
+      return ['工作总结生成失败']
     }
   }
 
