@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { MonitorStatus } from '../components/MonitorStatus'
 import { WorkItemList } from '../components/WorkItemList'
-import type { DailyAnalysisResult, AnalysisProgress } from '../../../shared/types/database'
+import { useAnalysis } from '../contexts/AnalysisContext'
+import type { DailyAnalysisResult } from '../../../shared/types/database'
 
 interface TodayStats {
   screenshots: number
@@ -17,8 +18,7 @@ export function Today(): React.JSX.Element {
     isPaused: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
+  const { analyzing, analysisProgress, triggerAnalysis, onAnalysisComplete } = useAnalysis()
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -27,11 +27,10 @@ export function Today(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onAnalysisProgress((progress) => {
-      setAnalysisProgress(progress)
+    return onAnalysisComplete(() => {
+      loadData()
     })
-    return unsubscribe
-  }, [])
+  }, [onAnalysisComplete])
 
   async function loadData(): Promise<void> {
     try {
@@ -58,16 +57,8 @@ export function Today(): React.JSX.Element {
     setMonitorStatus(status)
   }
 
-  async function handleAnalyze(): Promise<void> {
-    setAnalyzing(true)
-    setAnalysisProgress(null)
-    try {
-      await window.electronAPI.triggerAnalysis(today)
-    } finally {
-      setAnalyzing(false)
-      setAnalysisProgress(null)
-      await loadData()
-    }
+  function handleAnalyze(): void {
+    triggerAnalysis(today)
   }
 
   if (loading) {

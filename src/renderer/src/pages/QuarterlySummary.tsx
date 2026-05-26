@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
+import { useAnalysis } from '../contexts/AnalysisContext'
 import type { PeriodicSummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
 export function QuarterlySummary(): React.JSX.Element {
@@ -7,7 +8,7 @@ export function QuarterlySummary(): React.JSX.Element {
   const [summary, setSummary] = useState<PeriodicSummary | null>(null)
   const [allSummaries, setAllSummaries] = useState<PeriodicSummary[]>([])
   const [loading, setLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
+  const { generating, triggerPeriodicSummary, onAnalysisComplete } = useAnalysis()
 
   useEffect(() => {
     loadAllSummaries()
@@ -18,6 +19,15 @@ export function QuarterlySummary(): React.JSX.Element {
       loadSummary(selectedQuarter)
     }
   }, [selectedQuarter])
+
+  useEffect(() => {
+    return onAnalysisComplete(() => {
+      if (selectedQuarter) {
+        loadSummary(selectedQuarter)
+      }
+      loadAllSummaries()
+    })
+  }, [onAnalysisComplete, selectedQuarter])
 
   async function loadAllSummaries(): Promise<void> {
     try {
@@ -40,19 +50,9 @@ export function QuarterlySummary(): React.JSX.Element {
     }
   }
 
-  async function handleGenerate(): Promise<void> {
+  function handleGenerate(): void {
     if (!selectedQuarter) return
-
-    setGenerating(true)
-    try {
-      await window.electronAPI.triggerPeriodicSummary(selectedQuarter)
-      await loadSummary(selectedQuarter)
-      await loadAllSummaries()
-    } catch (err) {
-      console.error('Failed to generate summary:', err)
-    } finally {
-      setGenerating(false)
-    }
+    triggerPeriodicSummary(selectedQuarter)
   }
 
   const summaryResult: PeriodicSummaryResult | null = summary ? JSON.parse(summary.result_json) : null

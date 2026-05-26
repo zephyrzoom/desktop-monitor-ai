@@ -19,6 +19,7 @@ import {
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
   ANALYSIS_STATUS,
+  SUMMARY_TRIGGER,
   CONFIG_GET,
   CONFIG_SET,
   SYSTEM_OPEN_PATH,
@@ -95,6 +96,28 @@ export function registerIpcHandlers(
     } catch (err) {
       console.error('Analysis trigger failed:', err)
       return { status: 'failed', date }
+    }
+  })
+
+  ipcMain.handle(SUMMARY_TRIGGER, async (_event, periodLabel: string) => {
+    try {
+      // Parse periodLabel: "2024-Q1" -> quarter, "2024" -> year
+      const quarterMatch = periodLabel.match(/^(\d{4})-Q(\d)$/)
+      let success: boolean
+
+      if (quarterMatch) {
+        const year = parseInt(quarterMatch[1])
+        const quarter = parseInt(quarterMatch[2])
+        success = await analysisScheduler.triggerPeriodicSummary('quarter', year, quarter)
+      } else {
+        const year = parseInt(periodLabel)
+        success = await analysisScheduler.triggerPeriodicSummary('year', year)
+      }
+
+      return { status: success ? 'completed' : 'failed', periodLabel }
+    } catch (err) {
+      console.error('Summary trigger failed:', err)
+      return { status: 'failed', periodLabel }
     }
   })
 

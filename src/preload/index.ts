@@ -10,6 +10,7 @@ import {
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
   ANALYSIS_STATUS,
+  SUMMARY_TRIGGER,
   CONFIG_GET,
   CONFIG_SET,
   SYSTEM_OPEN_PATH,
@@ -30,6 +31,7 @@ const electronAPI = {
   getTodayStats: (date: string) => ipcRenderer.invoke(DATA_TODAY_STATS, date),
 
   triggerAnalysis: (date: string) => ipcRenderer.invoke(ANALYSIS_TRIGGER, date),
+  triggerPeriodicSummary: (periodLabel: string) => ipcRenderer.invoke(SUMMARY_TRIGGER, periodLabel),
 
   onAnalysisProgress: (callback: (progress: AnalysisProgress) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: AnalysisProgress) => {

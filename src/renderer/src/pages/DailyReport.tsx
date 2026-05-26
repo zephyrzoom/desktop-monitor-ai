@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react'
 import { DatePicker } from '../components/DatePicker'
 import { WorkItemList } from '../components/WorkItemList'
-import type { DailyAnalysisResult, DailyAnalysis, AnalysisProgress } from '../../../shared/types/database'
+import { useAnalysis } from '../contexts/AnalysisContext'
+import type { DailyAnalysisResult, DailyAnalysis } from '../../../shared/types/database'
 
 export function DailyReport(): React.JSX.Element {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null)
   const [allAnalyses, setAllAnalyses] = useState<DailyAnalysis[]>([])
   const [loading, setLoading] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
+  const { analyzing, analysisProgress, triggerAnalysis, onAnalysisComplete } = useAnalysis()
 
   useEffect(() => {
     loadAllAnalyses()
   }, [])
 
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onAnalysisProgress((progress) => {
-      setAnalysisProgress(progress)
+    return onAnalysisComplete(() => {
+      loadAllAnalyses()
+      loadAnalysis(selectedDate)
     })
-    return unsubscribe
-  }, [])
+  }, [onAnalysisComplete, selectedDate])
 
   useEffect(() => {
     loadAnalysis(selectedDate)
@@ -47,17 +47,8 @@ export function DailyReport(): React.JSX.Element {
     }
   }
 
-  async function handleAnalyze(): Promise<void> {
-    setAnalyzing(true)
-    setAnalysisProgress(null)
-    try {
-      await window.electronAPI.triggerAnalysis(selectedDate)
-    } finally {
-      setAnalyzing(false)
-      setAnalysisProgress(null)
-      await loadAllAnalyses()
-      await loadAnalysis(selectedDate)
-    }
+  function handleAnalyze(): void {
+    triggerAnalysis(selectedDate)
   }
 
   const analysisResult: DailyAnalysisResult | null = analysis ? JSON.parse(analysis.result_json) : null
