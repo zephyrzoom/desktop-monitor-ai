@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react'
 import { DatePicker } from '../components/DatePicker'
 import { WorkItemList } from '../components/WorkItemList'
-import type { DailyAnalysisResult, DailyAnalysis } from '../../../shared/types/database'
+import type { DailyAnalysisResult, DailyAnalysis, AnalysisProgress } from '../../../shared/types/database'
 
 export function DailyReport(): React.JSX.Element {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null)
   const [allAnalyses, setAllAnalyses] = useState<DailyAnalysis[]>([])
   const [loading, setLoading] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
 
   useEffect(() => {
     loadAllAnalyses()
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onAnalysisProgress((progress) => {
+      setAnalysisProgress(progress)
+    })
+    return unsubscribe
   }, [])
 
   useEffect(() => {
@@ -35,6 +44,19 @@ export function DailyReport(): React.JSX.Element {
       console.error('Failed to load analysis:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleAnalyze(): Promise<void> {
+    setAnalyzing(true)
+    setAnalysisProgress(null)
+    try {
+      await window.electronAPI.triggerAnalysis(selectedDate)
+    } finally {
+      setAnalyzing(false)
+      setAnalysisProgress(null)
+      await loadAllAnalyses()
+      await loadAnalysis(selectedDate)
     }
   }
 
@@ -74,13 +96,47 @@ export function DailyReport(): React.JSX.Element {
           </div>
           <h3 style={{ marginBottom: '16px' }}>工作内容</h3>
           <WorkItemList workItems={analysisResult.work_items} />
+          <div style={{ marginTop: '24px' }}>
+            <button className="button button-secondary" onClick={handleAnalyze} disabled={analyzing}>
+              {analyzing ? '分析中...' : '重新分析'}
+            </button>
+          </div>
         </>
       ) : (
         <div className="empty-state">
           <p>该日期暂无分析结果</p>
-          <p style={{ fontSize: '14px', marginTop: '8px' }}>
-            请先在今日概览页面触发分析，或等待每日自动分析
-          </p>
+          <div style={{ marginTop: '16px' }}>
+            <button className="button button-primary" onClick={handleAnalyze} disabled={analyzing}>
+              {analyzing ? '分析中...' : `分析 ${selectedDate} 的工作`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {analyzing && (
+        <div className="analysis-progress" style={{ marginTop: '16px' }}>
+          <div className="analysis-progress-header">
+            <div className="analysis-spinner"></div>
+            <span>正在分析...</span>
+          </div>
+          {analysisProgress && (
+            <div className="analysis-progress-detail">
+              <span>{analysisProgress.step}</span>
+              {analysisProgress.total > 0 && (
+                <div className="analysis-progress-bar-wrapper">
+                  <div
+                    className="analysis-progress-bar"
+                    style={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}
+                  />
+                </div>
+              )}
+              {analysisProgress.total > 0 && (
+                <span className="analysis-progress-count">
+                  {analysisProgress.current} / {analysisProgress.total}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
