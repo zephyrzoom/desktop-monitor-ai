@@ -13,8 +13,6 @@ export class MonitorManager {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private debounceMs: number
   private scheduleCheckTimer: ReturnType<typeof setInterval> | null = null
-  private monitoringStartTime: string
-  private monitoringEndTime: string
 
   constructor() {
     const config = getConfigValue('monitoring')
@@ -22,8 +20,6 @@ export class MonitorManager {
     this.screenshotMonitor = new ScreenshotMonitor(config.screenshotIntervalMs, config.screenshotsDir || undefined)
     this.idleDetector = new IdleDetector()
     this.debounceMs = (config.windowChangeDebounceSec ?? 3) * 1000
-    this.monitoringStartTime = config.monitoringStartTime || '00:00'
-    this.monitoringEndTime = config.monitoringEndTime || '23:59'
 
     this.activeWindowMonitor.on('windowChanged', (_event: WindowChangeEvent) => {
       if (this.effectivePaused) return
