@@ -68,6 +68,11 @@ export function Today(): React.JSX.Element {
   const analysisResult: DailyAnalysisResult | null = stats?.analysis
     ? JSON.parse(stats.analysis.result_json)
     : null
+  const summaryItems: string[] = Array.isArray(analysisResult?.summary)
+    ? analysisResult.summary
+    : typeof analysisResult?.summary === 'string'
+      ? [analysisResult.summary]
+      : []
 
   return (
     <div>
@@ -141,7 +146,7 @@ export function Today(): React.JSX.Element {
         <>
           <div className="summary-box">
             <ol className="summary-list">
-              {analysisResult.summary.map((item, index) => (
+              {summaryItems.map((item, index) => (
                 <li key={index}>{item}</li>
               ))}
             </ol>
