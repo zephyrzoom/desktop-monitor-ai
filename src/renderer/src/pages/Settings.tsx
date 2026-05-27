@@ -7,6 +7,8 @@ interface Config {
     windowPollIntervalMs: number
     windowChangeDebounceSec: number
     screenshotsDir: string
+    monitoringStartTime: string
+    monitoringEndTime: string
   }
   analysis: {
     apiKey: string
@@ -212,6 +214,39 @@ export function Settings(): React.JSX.Element {
       <div className="card">
         <div className="card-title">监控配置</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>监控时间段</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="time"
+                value={config.monitoring.monitoringStartTime || '00:00'}
+                onChange={(e) => updateMonitoring('monitoringStartTime', e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: 'var(--bg-primary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  color: 'var(--text-primary)'
+                }}
+              />
+              <span style={{ color: 'var(--text-secondary)' }}>至</span>
+              <input
+                type="time"
+                value={config.monitoring.monitoringEndTime || '23:59'}
+                onChange={(e) => updateMonitoring('monitoringEndTime', e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: 'var(--bg-primary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  color: 'var(--text-primary)'
+                }}
+              />
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+              仅在指定时间段内进行监控，默认全天监控
+            </span>
+          </div>
           <div>
             <label style={{ display: 'block', marginBottom: '4px' }}>定时截图间隔 (分钟)</label>
             <input

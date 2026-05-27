@@ -9,6 +9,8 @@ interface Config {
     windowPollIntervalMs: number
     windowChangeDebounceSec: number
     screenshotsDir: string
+    monitoringStartTime: string
+    monitoringEndTime: string
   }
   analysis: {
     apiKey: string
@@ -29,7 +31,9 @@ const defaults: Config = {
     screenshotIntervalMs: 10 * 60 * 1000,
     windowPollIntervalMs: 1000,
     windowChangeDebounceSec: 3,
-    screenshotsDir: ''
+    screenshotsDir: '',
+    monitoringStartTime: '00:00',
+    monitoringEndTime: '23:59'
   },
   analysis: {
     apiKey: '',
@@ -61,7 +65,12 @@ function loadConfig(): Config {
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf-8')
-      configCache = { ...defaults, ...JSON.parse(data) }
+      const parsed = JSON.parse(data)
+      configCache = {
+        monitoring: { ...defaults.monitoring, ...parsed.monitoring },
+        analysis: { ...defaults.analysis, ...parsed.analysis },
+        cleanup: { ...defaults.cleanup, ...parsed.cleanup }
+      }
     } else {
       configCache = { ...defaults }
       saveConfig(configCache)

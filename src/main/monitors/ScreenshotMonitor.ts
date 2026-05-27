@@ -15,6 +15,7 @@ export class ScreenshotMonitor implements Monitor {
   private timerIntervalMs: number
   private screenshotsDir: string
   private onScreenshotTaken?: (screenshotId: number) => void
+  private paused = false
 
   constructor(timerIntervalMs = 10 * 60 * 1000, screenshotsDir?: string) {
     this.timerIntervalMs = timerIntervalMs
@@ -33,7 +34,7 @@ export class ScreenshotMonitor implements Monitor {
 
     this.cleanup()
 
-    this.timerInterval = setInterval(() => this.captureScreenshot('timer'), this.timerIntervalMs)
+    this.timerInterval = setInterval(() => this.onTimerTick(), this.timerIntervalMs)
   }
 
   private cleanup(): void {
@@ -77,6 +78,19 @@ export class ScreenshotMonitor implements Monitor {
       this.timerInterval = null
     }
     this.status = 'stopped'
+  }
+
+  pause(): void {
+    this.paused = true
+  }
+
+  resume(): void {
+    this.paused = false
+  }
+
+  private onTimerTick(): void {
+    if (this.paused) return
+    this.captureScreenshot('timer')
   }
 
   getStatus(): MonitorStatus {
