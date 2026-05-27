@@ -11,6 +11,7 @@ interface Config {
     screenshotsDir: string
     monitoringStartTime: string
     monitoringEndTime: string
+    idleTimeoutMinutes: number
   }
   analysis: {
     apiKey: string
@@ -33,7 +34,8 @@ const defaults: Config = {
     windowChangeDebounceSec: 3,
     screenshotsDir: '',
     monitoringStartTime: '00:00',
-    monitoringEndTime: '23:59'
+    monitoringEndTime: '23:59',
+    idleTimeoutMinutes: 5
   },
   analysis: {
     apiKey: '',

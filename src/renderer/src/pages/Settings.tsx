@@ -9,6 +9,7 @@ interface Config {
     screenshotsDir: string
     monitoringStartTime: string
     monitoringEndTime: string
+    idleTimeoutMinutes: number
   }
   analysis: {
     apiKey: string
@@ -245,6 +246,27 @@ export function Settings(): React.JSX.Element {
             </div>
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
               仅在指定时间段内进行监控，默认全天监控
+            </span>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>空闲暂停时间 (分钟)</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={config.monitoring.idleTimeoutMinutes ?? 5}
+              onChange={(e) => updateMonitoring('idleTimeoutMinutes', parseInt(e.target.value))}
+              style={{
+                width: '200px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)'
+              }}
+            />
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+              鼠标键盘无操作超过此时间自动暂停监控，有操作后自动恢复
             </span>
           </div>
           <div>

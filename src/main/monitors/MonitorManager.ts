@@ -68,6 +68,7 @@ export class MonitorManager {
       clearInterval(this.scheduleCheckTimer)
       this.scheduleCheckTimer = null
     }
+    this.idleDetector.stop()
     await this.activeWindowMonitor.stop()
     await this.screenshotMonitor.stop()
   }
