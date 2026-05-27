@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import sharp from 'sharp'
+import { Jimp } from 'jimp'
 import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
@@ -256,7 +256,9 @@ export class DailyAnalyzer {
         const filePath = path.join(screenshotsDir, screenshot.file_path)
         if (!fs.existsSync(filePath)) continue
 
-        const buffer = await sharp(filePath).resize(1280, 720, { fit: 'inside' }).jpeg().toBuffer()
+        const image = await Jimp.read(filePath)
+        image.scaleToFit({ w: 1280, h: 720 })
+        const buffer = await image.getBuffer('image/jpeg')
 
         results.push(buffer.toString('base64'))
       } catch (err) {

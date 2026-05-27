@@ -13,8 +13,6 @@ asarUnpack:
   - resources/**
   - node_modules/better-sqlite3/**
   - node_modules/active-win/**
-  - node_modules/sharp/**
-  - node_modules/@img/**
 win:
   executableName: desktop-monitor
   icon: resources/icon.ico
