@@ -8,6 +8,7 @@ import { getAppUsageSummaryByDate, getAppUsageSummaryByTimeRange } from '../data
 import { insertOrUpdateDailyAnalysis } from '../database/queries/dailyAnalysis'
 import { buildDailyAnalysisPrompt, buildConsolidationPrompt, buildSummaryPrompt, parseAnalysisResult } from './PromptBuilder'
 import { getConfigValue } from '../config/store'
+import { logger } from '../utils/logger'
 import type { Screenshot, DailyAnalysisResult, AnalysisProgress, WorkItem } from '../../shared/types/database'
 
 export class DailyAnalyzer {
@@ -184,7 +185,7 @@ export class DailyAnalyzer {
 
       return parseAnalysisResult(responseContent)
     } catch (err) {
-      console.error('AI analysis batch error:', err)
+      logger.error('AI analysis batch error:', err)
       return null
     }
   }
@@ -211,7 +212,7 @@ export class DailyAnalyzer {
       }
       return ['无法生成工作总结']
     } catch (err) {
-      console.error('Summary generation error:', err)
+      logger.error('Summary generation error:', err)
       return ['工作总结生成失败']
     }
   }
@@ -243,7 +244,7 @@ export class DailyAnalyzer {
         category: String(item.category || '其他')
       }))
     } catch (err) {
-      console.error('Work items consolidation error:', err)
+      logger.error('Work items consolidation error:', err)
       return workItems
     }
   }
@@ -269,7 +270,7 @@ export class DailyAnalyzer {
 
         results.push(buffer.toString('base64'))
       } catch (err) {
-        console.error('Failed to process screenshot:', err)
+        logger.error('Failed to process screenshot:', err)
       }
     }
 

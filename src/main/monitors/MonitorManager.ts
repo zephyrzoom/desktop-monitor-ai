@@ -2,6 +2,7 @@ import { ActiveWindowMonitor, type WindowChangeEvent } from './ActiveWindowMonit
 import { ScreenshotMonitor } from './ScreenshotMonitor'
 import { IdleDetector } from './IdleDetector'
 import { getConfigValue } from '../config/store'
+import { logger } from '../utils/logger'
 import type { MonitorStatus } from './types'
 
 export class MonitorManager {
@@ -36,7 +37,7 @@ export class MonitorManager {
     })
 
     this.activeWindowMonitor.on('error', (err) => {
-      console.error('ActiveWindowMonitor error:', err)
+      logger.error('ActiveWindowMonitor error:', err)
     })
 
     this.idleDetector.on('idle', () => {
@@ -82,14 +83,14 @@ export class MonitorManager {
     this.isPaused = true
     this.screenshotMonitor.pause()
     this.notifyStatusChange()
-    console.log('Monitors paused (screen locked or suspended)')
+    logger.info('Monitors paused (screen locked or suspended)')
   }
 
   resume(): void {
     this.isPaused = false
     if (!this.isTimePaused) {
       this.screenshotMonitor.resume()
-      console.log('Monitors resumed')
+      logger.info('Monitors resumed')
     }
     this.notifyStatusChange()
   }
@@ -110,12 +111,12 @@ export class MonitorManager {
       this.isTimePaused = true
       this.screenshotMonitor.pause()
       this.notifyStatusChange()
-      console.log(`Monitors paused (outside monitoring hours ${startTime}-${endTime})`)
+      logger.info(`Monitors paused (outside monitoring hours ${startTime}-${endTime})`)
     } else if (inRange && this.isTimePaused) {
       this.isTimePaused = false
       if (!this.isPaused) this.screenshotMonitor.resume()
       this.notifyStatusChange()
-      console.log(`Monitors resumed (within monitoring hours ${startTime}-${endTime})`)
+      logger.info(`Monitors resumed (within monitoring hours ${startTime}-${endTime})`)
     }
   }
 

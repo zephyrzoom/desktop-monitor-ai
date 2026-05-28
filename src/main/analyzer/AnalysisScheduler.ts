@@ -1,6 +1,7 @@
 import { DailyAnalyzer } from './DailyAnalyzer'
 import { SummaryGenerator } from './SummaryGenerator'
 import { getConfigValue } from '../config/store'
+import { logger } from '../utils/logger'
 import type { AnalysisProgress } from '../../shared/types/database'
 
 export class AnalysisScheduler {
@@ -42,7 +43,7 @@ export class AnalysisScheduler {
       this.isRunning = false
       return result !== null
     } catch (err) {
-      console.error('Daily analysis failed:', err)
+      logger.error('Daily analysis failed:', err)
       this.isRunning = false
       return false
     }
@@ -71,7 +72,7 @@ export class AnalysisScheduler {
       this.isRunning = false
       return result !== null
     } catch (err) {
-      console.error('Periodic summary failed:', err)
+      logger.error('Periodic summary failed:', err)
       this.isRunning = false
       return false
     }

@@ -8,6 +8,7 @@ import { getActiveWindowsByDate, getAppUsageSummaryByDate } from '../database/qu
 import { getDailyAnalysisByDate, getAllDailyAnalysis } from '../database/queries/dailyAnalysis'
 import { getPeriodicSummary, getPeriodicSummariesByType } from '../database/queries/periodicSummary'
 import { getFullConfig, setConfigValue } from '../config/store'
+import { logger } from '../utils/logger'
 import {
   MONITOR_STATUS,
   MONITOR_START,
@@ -101,7 +102,7 @@ export function registerIpcHandlers(
       const success = await analysisScheduler.triggerDailyAnalysis(date, onProgress)
       return { status: success ? 'completed' : 'failed', date }
     } catch (err) {
-      console.error('Analysis trigger failed:', err)
+      logger.error('Analysis trigger failed:', err)
       return { status: 'failed', date }
     }
   })
@@ -123,7 +124,7 @@ export function registerIpcHandlers(
 
       return { status: success ? 'completed' : 'failed', periodLabel }
     } catch (err) {
-      console.error('Summary trigger failed:', err)
+      logger.error('Summary trigger failed:', err)
       return { status: 'failed', periodLabel }
     }
   })

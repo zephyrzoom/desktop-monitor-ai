@@ -6,6 +6,7 @@ import { nativeImage } from 'electron'
 import type { Monitor, MonitorStatus } from './types'
 import { insertScreenshot, getScreenshotsBeforeDate, deleteScreenshotsBeforeDate } from '../database/queries/screenshots'
 import { getConfigValue } from '../config/store'
+import { logger } from '../utils/logger'
 
 export class ScreenshotMonitor implements Monitor {
   name = 'screenshot'
@@ -54,7 +55,7 @@ export class ScreenshotMonitor implements Monitor {
 
       const deleted = deleteScreenshotsBeforeDate(cutoffDate)
       if (deleted > 0) {
-        console.log(`Cleanup: removed ${deleted} screenshots before ${cutoffDate}`)
+        logger.info(`Cleanup: removed ${deleted} screenshots before ${cutoffDate}`)
       }
 
       // Remove empty date directories
@@ -68,7 +69,7 @@ export class ScreenshotMonitor implements Monitor {
         }
       } catch {}
     } catch (err) {
-      console.error('Cleanup failed:', err)
+      logger.error('Cleanup failed:', err)
     }
   }
 

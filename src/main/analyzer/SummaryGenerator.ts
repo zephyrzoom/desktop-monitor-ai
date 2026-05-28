@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { getDailyAnalysisByDateRange } from '../database/queries/dailyAnalysis'
 import { insertOrUpdatePeriodicSummary } from '../database/queries/periodicSummary'
 import { buildPeriodicSummaryPrompt } from './PromptBuilder'
+import { logger } from '../utils/logger'
 import type { PeriodicSummaryResult } from '../../shared/types/database'
 
 export class SummaryGenerator {
@@ -69,7 +70,7 @@ export class SummaryGenerator {
 
       return result
     } catch (err) {
-      console.error('Summary generation error:', err)
+      logger.error('Summary generation error:', err)
       return null
     }
   }
