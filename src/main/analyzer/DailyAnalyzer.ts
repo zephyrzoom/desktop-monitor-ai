@@ -180,6 +180,11 @@ export class DailyAnalyzer {
         max_tokens: 2000
       })
 
+      if (!response.choices?.length) {
+        logger.error('AI analysis: empty response', JSON.stringify(response))
+        return null
+      }
+
       const responseContent = response.choices[0]?.message?.content
       if (!responseContent) return null
 
@@ -202,7 +207,7 @@ export class DailyAnalyzer {
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 500
       })
-      const content = response.choices[0]?.message?.content || '[]'
+      const content = response.choices?.[0]?.message?.content || '[]'
       const jsonMatch = content.match(/\[[\s\S]*\]/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
@@ -228,7 +233,7 @@ export class DailyAnalyzer {
         max_tokens: 2000
       })
 
-      const responseContent = response.choices[0]?.message?.content
+      const responseContent = response.choices?.[0]?.message?.content
       if (!responseContent) return workItems
 
       const jsonMatch = responseContent.match(/\{[\s\S]*\}/)

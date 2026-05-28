@@ -60,6 +60,11 @@ export class SummaryGenerator {
         max_tokens: 2000
       })
 
+      if (!response.choices?.length) {
+        logger.error('Summary generation: empty response', JSON.stringify(response))
+        return null
+      }
+
       const content = response.choices[0]?.message?.content
       if (!content) return null
 
