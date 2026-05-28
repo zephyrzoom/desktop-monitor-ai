@@ -286,7 +286,19 @@ export class DailyAnalyzer {
         if (!fs.existsSync(filePath)) continue
 
         const img = nativeImage.createFromPath(filePath)
+
+        // 跳过空图片或无效图片
+        if (img.isEmpty()) {
+          logger.warn(`Skipping empty image: ${filePath}`)
+          continue
+        }
+
         const size = img.getSize()
+        if (size.width === 0 || size.height === 0) {
+          logger.warn(`Skipping invalid image dimensions: ${filePath}`)
+          continue
+        }
+
         const maxW = 1280
         let resized = img
         if (size.width > maxW) {
@@ -294,7 +306,14 @@ export class DailyAnalyzer {
         }
         const buffer = resized.toJPEG(80)
 
-        results.push(buffer.toString('base64'))
+        // 验证 base64 数据有效性
+        const base64 = buffer.toString('base64')
+        if (!base64 || base64.length < 100) {
+          logger.warn(`Skipping invalid image data: ${filePath}`)
+          continue
+        }
+
+        results.push(base64)
       } catch (err) {
         logger.error('Failed to process screenshot:', err)
       }
