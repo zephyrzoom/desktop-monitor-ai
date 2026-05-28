@@ -2,7 +2,7 @@ import { desktopCapturer } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { app } from 'electron'
-import { Jimp } from 'jimp'
+import { nativeImage } from 'electron'
 import type { Monitor, MonitorStatus } from './types'
 import { insertScreenshot, getScreenshotsBeforeDate, deleteScreenshotsBeforeDate } from '../database/queries/screenshots'
 import { getConfigValue } from '../config/store'
@@ -120,8 +120,8 @@ export class ScreenshotMonitor implements Monitor {
 
       const filePath = path.join(dateDir, fileName)
       const pngBuffer = source.thumbnail.toPNG()
-      const image = await Jimp.read(pngBuffer)
-      const buffer = await image.getBuffer('image/jpeg', { quality: 80 })
+      const img = nativeImage.createFromBuffer(pngBuffer)
+      const buffer = img.toJPEG(80)
       fs.writeFileSync(filePath, buffer)
 
       const screenshotId = insertScreenshot(

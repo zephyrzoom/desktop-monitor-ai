@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { Jimp } from 'jimp'
+import { nativeImage } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
@@ -256,9 +256,14 @@ export class DailyAnalyzer {
         const filePath = path.join(screenshotsDir, screenshot.file_path)
         if (!fs.existsSync(filePath)) continue
 
-        const image = await Jimp.read(filePath)
-        image.scaleToFit({ w: 1280, h: 720 })
-        const buffer = await image.getBuffer('image/jpeg')
+        const img = nativeImage.createFromPath(filePath)
+        const size = img.getSize()
+        const maxW = 1280
+        let resized = img
+        if (size.width > maxW) {
+          resized = img.resize({ width: maxW })
+        }
+        const buffer = resized.toJPEG(80)
 
         results.push(buffer.toString('base64'))
       } catch (err) {
