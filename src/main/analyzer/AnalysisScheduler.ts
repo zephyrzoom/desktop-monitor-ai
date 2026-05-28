@@ -88,7 +88,7 @@ export class AnalysisScheduler {
         config.maxScreenshotsPerBatch,
         config.gapThresholdMinutes
       )
-      this.summaryGenerator = new SummaryGenerator(config.apiKey, config.baseUrl)
+      this.summaryGenerator = new SummaryGenerator(config.apiKey, config.baseUrl, config.model)
     }
   }
 
@@ -100,7 +100,7 @@ export class AnalysisScheduler {
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
     if (currentTime === config.scheduleTime) {
-      const today = now.toISOString().split('T')[0]
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       this.triggerDailyAnalysis(today)
     }
   }

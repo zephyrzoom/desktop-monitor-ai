@@ -12,17 +12,19 @@ import type { Screenshot, DailyAnalysisResult, AnalysisProgress, WorkItem } from
 
 export class DailyAnalyzer {
   private openai: OpenAI
+  private model: string
   private maxScreenshotsPerBatch: number
   private gapThresholdMinutes: number
 
   constructor(
     apiKey: string,
     baseUrl: string,
-    _model: string,
+    model: string,
     maxScreenshotsPerBatch = 15,
     gapThresholdMinutes = 15
   ) {
     this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
+    this.model = model || 'gpt-4o'
     this.maxScreenshotsPerBatch = maxScreenshotsPerBatch
     this.gapThresholdMinutes = gapThresholdMinutes
   }
@@ -172,7 +174,7 @@ export class DailyAnalyzer {
       }
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: this.model,
         messages: [{ role: 'user', content }],
         max_tokens: 2000
       })
@@ -195,7 +197,7 @@ export class DailyAnalyzer {
     try {
       const prompt = buildSummaryPrompt(workItems, fullDayAppUsage)
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: this.model,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 500
       })
@@ -220,7 +222,7 @@ export class DailyAnalyzer {
     try {
       const prompt = buildConsolidationPrompt(workItems)
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: this.model,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 2000
       })

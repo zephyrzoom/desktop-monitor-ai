@@ -6,9 +6,11 @@ import type { PeriodicSummaryResult } from '../../shared/types/database'
 
 export class SummaryGenerator {
   private openai: OpenAI
+  private model: string
 
-  constructor(apiKey: string, baseUrl: string) {
+  constructor(apiKey: string, baseUrl: string, model?: string) {
     this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
+    this.model = model || 'gpt-4o'
   }
 
   async generateQuarterly(year: number, quarter: number): Promise<PeriodicSummaryResult | null> {
@@ -52,7 +54,7 @@ export class SummaryGenerator {
       const prompt = buildPeriodicSummaryPrompt(dailyData, periodType, periodLabel)
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: this.model,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 2000
       })

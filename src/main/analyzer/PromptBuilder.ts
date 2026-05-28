@@ -35,7 +35,7 @@ ${priorContext}
       "category": "编程开发"
     }
   ],
-  "summary": "这段时间主要完成了..."
+  "summary": ["这段时间主要完成了..."]
 }
 
 注意:
@@ -97,7 +97,15 @@ export function parseAnalysisResult(content: string): DailyAnalysisResult | null
     const result = JSON.parse(jsonMatch[0])
 
     if (!result.work_items || !Array.isArray(result.work_items)) return null
-    if (!result.summary || !Array.isArray(result.summary)) return null
+
+    let summary: string[]
+    if (Array.isArray(result.summary)) {
+      summary = result.summary.map((s: unknown) => String(s))
+    } else if (typeof result.summary === 'string') {
+      summary = [result.summary]
+    } else {
+      return null
+    }
 
     return {
       work_items: result.work_items.map((item: Record<string, unknown>) => ({
@@ -106,7 +114,7 @@ export function parseAnalysisResult(content: string): DailyAnalysisResult | null
         app: String(item.app || ''),
         category: String(item.category || '其他')
       })),
-      summary: result.summary.map((s: unknown) => String(s))
+      summary
     }
   } catch {
     return null
