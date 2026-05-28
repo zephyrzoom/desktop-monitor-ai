@@ -41,8 +41,11 @@ export class SummaryGenerator {
       const dailyAnalyses = getDailyAnalysisByDateRange(startDate, endDate)
 
       if (dailyAnalyses.length === 0) {
+        logger.info(`[SummaryGenerator] ${periodLabel} 无日报数据，跳过生成`)
         return null
       }
+
+      logger.info(`[SummaryGenerator] 开始生成 ${periodLabel} 总结，共 ${dailyAnalyses.length} 天数据`)
 
       const dailyData = dailyAnalyses.map((d) => {
         const result = JSON.parse(d.result_json)
@@ -54,6 +57,7 @@ export class SummaryGenerator {
 
       const prompt = buildPeriodicSummaryPrompt(dailyData, periodType, periodLabel)
 
+      logger.info(`[SummaryGenerator] 调用 AI 生成 ${periodLabel} 总结，模型: ${this.model}`)
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [{ role: 'user', content: prompt }],
@@ -66,11 +70,20 @@ export class SummaryGenerator {
       }
 
       const content = response.choices[0]?.message?.content
-      if (!content) return null
+      if (!content) {
+        logger.warn(`[SummaryGenerator] AI 返回内容为空`)
+        return null
+      }
+
+      logger.info(`[SummaryGenerator] AI 响应完成，长度: ${content.length} 字符`)
 
       const result = this.parseSummaryResult(content)
-      if (!result) return null
+      if (!result) {
+        logger.warn(`[SummaryGenerator] 解析结果失败`)
+        return null
+      }
 
+      logger.info(`[SummaryGenerator] ${periodLabel} 总结生成完成: ${result.highlights.length} 个亮点, ${result.work_categories.length} 个分类`)
       insertOrUpdatePeriodicSummary(periodType, periodLabel, JSON.stringify(result))
 
       return result

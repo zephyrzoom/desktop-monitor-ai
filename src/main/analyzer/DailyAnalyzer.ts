@@ -35,13 +35,18 @@ export class DailyAnalyzer {
     const appUsage = getAppUsageSummaryByDate(date)
 
     if (screenshots.length === 0) {
+      logger.info(`[DailyAnalyzer] ${date} 无截图数据，跳过分析`)
       return null
     }
+
+    logger.info(`[DailyAnalyzer] 开始分析 ${date}，共 ${screenshots.length} 张截图`)
 
     onProgress?.({ step: '获取截图数据', current: 0, total: 0 })
 
     const sortedScreenshots = [...screenshots].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
     const batches = this.createBatches(sortedScreenshots)
+
+    logger.info(`[DailyAnalyzer] 分为 ${batches.length} 批处理，模型: ${this.model}`)
 
     onProgress?.({ step: `已准备 ${sortedScreenshots.length} 张截图，分为 ${batches.length} 批`, current: 0, total: 0 })
 
@@ -67,6 +72,8 @@ export class DailyAnalyzer {
 
     onProgress?.({ step: '正在合并同类工作内容...', current: 0, total: 0 })
 
+    logger.info(`[DailyAnalyzer] 批次分析完成，共 ${allWorkItems.length} 个工作项，开始合并`)
+
     allWorkItems.sort((a, b) => a.time_range.localeCompare(b.time_range))
 
     const consolidatedItems = await this.consolidateWorkItems(allWorkItems)
@@ -80,6 +87,7 @@ export class DailyAnalyzer {
       summary: overallSummary
     }
 
+    logger.info(`[DailyAnalyzer] ${date} 分析完成: ${consolidatedItems.length} 个工作项, ${overallSummary.length} 条总结`)
     insertOrUpdateDailyAnalysis(date, JSON.stringify(finalResult))
 
     return finalResult
@@ -156,6 +164,8 @@ export class DailyAnalyzer {
     try {
       const base64Images = await this.prepareImages(screenshots)
 
+      logger.info(`[DailyAnalyzer] 调用 AI 分析批次: ${screenshots.length} 张截图, ${base64Images.length} 张已编码, 时间 ${screenshots[0].timestamp.split('T')[1]?.substring(0, 5)}-${screenshots[screenshots.length - 1].timestamp.split('T')[1]?.substring(0, 5)}`)
+
       const timeRange = {
         start: screenshots[0].timestamp.split('T')[1]?.substring(0, 5) || '00:00',
         end: screenshots[screenshots.length - 1].timestamp.split('T')[1]?.substring(0, 5) || '23:59'
@@ -186,8 +196,12 @@ export class DailyAnalyzer {
       }
 
       const responseContent = response.choices[0]?.message?.content
-      if (!responseContent) return null
+      if (!responseContent) {
+        logger.warn('[DailyAnalyzer] AI 返回内容为空')
+        return null
+      }
 
+      logger.info(`[DailyAnalyzer] AI 分析批次完成，响应长度: ${responseContent.length} 字符`)
       return parseAnalysisResult(responseContent)
     } catch (err) {
       logger.error('AI analysis batch error:', err)
@@ -201,6 +215,7 @@ export class DailyAnalyzer {
     _date: string
   ): Promise<string[]> {
     try {
+      logger.info(`[DailyAnalyzer] 调用 AI 生成工作总结，${workItems.length} 个工作项`)
       const prompt = buildSummaryPrompt(workItems, fullDayAppUsage)
       const response = await this.openai.chat.completions.create({
         model: this.model,
@@ -208,6 +223,7 @@ export class DailyAnalyzer {
         max_tokens: 500
       })
       const content = response.choices?.[0]?.message?.content || '[]'
+      logger.info(`[DailyAnalyzer] AI 工作总结生成完成，响应长度: ${content.length} 字符`)
       const jsonMatch = content.match(/\[[\s\S]*\]/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
@@ -226,6 +242,7 @@ export class DailyAnalyzer {
     if (workItems.length <= 1) return workItems
 
     try {
+      logger.info(`[DailyAnalyzer] 调用 AI 合并 ${workItems.length} 个工作项`)
       const prompt = buildConsolidationPrompt(workItems)
       const response = await this.openai.chat.completions.create({
         model: this.model,
@@ -240,8 +257,12 @@ export class DailyAnalyzer {
       if (!jsonMatch) return workItems
 
       const result = JSON.parse(jsonMatch[0])
-      if (!result.work_items || !Array.isArray(result.work_items)) return workItems
+      if (!result.work_items || !Array.isArray(result.work_items)) {
+        logger.warn('[DailyAnalyzer] AI 合并结果格式无效')
+        return workItems
+      }
 
+      logger.info(`[DailyAnalyzer] AI 合并完成: ${workItems.length} -> ${result.work_items.length} 个工作项`)
       return result.work_items.map((item: Record<string, unknown>) => ({
         time_range: String(item.time_range || ''),
         activity: String(item.activity || ''),

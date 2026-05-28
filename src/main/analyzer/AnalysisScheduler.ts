@@ -32,15 +32,20 @@ export class AnalysisScheduler {
   async triggerDailyAnalysis(date?: string, onProgress?: (progress: AnalysisProgress) => void): Promise<boolean> {
     if (!this.dailyAnalyzer) {
       this.initClients()
-      if (!this.dailyAnalyzer) return false
+      if (!this.dailyAnalyzer) {
+        logger.warn('[AnalysisScheduler] 无法初始化 DailyAnalyzer，可能缺少 API Key')
+        return false
+      }
     }
 
     const targetDate = date || new Date().toISOString().split('T')[0]
+    logger.info(`[AnalysisScheduler] 触发每日分析: ${targetDate}`)
 
     try {
       this.isRunning = true
       const result = await this.dailyAnalyzer.analyze(targetDate, onProgress)
       this.isRunning = false
+      logger.info(`[AnalysisScheduler] 每日分析 ${targetDate} 完成: ${result ? '成功' : '失败'}`)
       return result !== null
     } catch (err) {
       logger.error('Daily analysis failed:', err)
@@ -61,6 +66,7 @@ export class AnalysisScheduler {
 
     try {
       this.isRunning = true
+      logger.info(`[AnalysisScheduler] 触发周期总结: ${periodType} ${year}${quarter ? ` Q${quarter}` : ''}`)
       let result
 
       if (periodType === 'quarter' && quarter) {
@@ -70,6 +76,7 @@ export class AnalysisScheduler {
       }
 
       this.isRunning = false
+      logger.info(`[AnalysisScheduler] 周期总结完成: ${result ? '成功' : '失败'}`)
       return result !== null
     } catch (err) {
       logger.error('Periodic summary failed:', err)
@@ -102,6 +109,7 @@ export class AnalysisScheduler {
 
     if (currentTime === config.scheduleTime) {
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      logger.info(`[AnalysisScheduler] 定时触发分析: ${today} ${currentTime}`)
       this.triggerDailyAnalysis(today)
     }
   }
