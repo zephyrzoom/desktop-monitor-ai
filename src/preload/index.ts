@@ -3,6 +3,7 @@ import {
   MONITOR_STATUS,
   MONITOR_START,
   MONITOR_STOP,
+  MONITOR_STATUS_CHANGED,
   DATA_SCREENSHOTS,
   DATA_ACTIVE_WINDOWS,
   DATA_DAILY_ANALYSIS,
@@ -40,6 +41,16 @@ const electronAPI = {
     ipcRenderer.on(ANALYSIS_STATUS, listener)
     return () => {
       ipcRenderer.removeListener(ANALYSIS_STATUS, listener)
+    }
+  },
+
+  onMonitorStatusChanged: (callback: (status: { monitors: { name: string; status: string }[]; isPaused: boolean }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: { monitors: { name: string; status: string }[]; isPaused: boolean }) => {
+      callback(status)
+    }
+    ipcRenderer.on(MONITOR_STATUS_CHANGED, listener)
+    return () => {
+      ipcRenderer.removeListener(MONITOR_STATUS_CHANGED, listener)
     }
   },
 

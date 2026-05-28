@@ -13,6 +13,7 @@ export class MonitorManager {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private debounceMs: number
   private scheduleCheckTimer: ReturnType<typeof setInterval> | null = null
+  private onStatusChange: ((status: { monitors: MonitorStatus[]; isPaused: boolean }) => void) | null = null
 
   constructor() {
     const config = getConfigValue('monitoring')
@@ -47,6 +48,14 @@ export class MonitorManager {
     })
   }
 
+  setStatusChangeListener(listener: (status: { monitors: MonitorStatus[]; isPaused: boolean }) => void): void {
+    this.onStatusChange = listener
+  }
+
+  private notifyStatusChange(): void {
+    this.onStatusChange?.(this.getStatus())
+  }
+
   async startAll(): Promise<void> {
     this.idleDetector.start()
     await this.activeWindowMonitor.start()
@@ -72,6 +81,7 @@ export class MonitorManager {
   pause(): void {
     this.isPaused = true
     this.screenshotMonitor.pause()
+    this.notifyStatusChange()
     console.log('Monitors paused (screen locked or suspended)')
   }
 
@@ -81,6 +91,7 @@ export class MonitorManager {
       this.screenshotMonitor.resume()
       console.log('Monitors resumed')
     }
+    this.notifyStatusChange()
   }
 
   private checkSchedule(): void {
@@ -98,10 +109,12 @@ export class MonitorManager {
     if (!inRange && !this.isTimePaused) {
       this.isTimePaused = true
       this.screenshotMonitor.pause()
+      this.notifyStatusChange()
       console.log(`Monitors paused (outside monitoring hours ${startTime}-${endTime})`)
     } else if (inRange && this.isTimePaused) {
       this.isTimePaused = false
       if (!this.isPaused) this.screenshotMonitor.resume()
+      this.notifyStatusChange()
       console.log(`Monitors resumed (within monitoring hours ${startTime}-${endTime})`)
     }
   }

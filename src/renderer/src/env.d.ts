@@ -12,6 +12,7 @@ interface ElectronAPI {
   triggerAnalysis: (date: string) => Promise<unknown>
   triggerPeriodicSummary: (periodLabel: string) => Promise<unknown>
   onAnalysisProgress: (callback: (progress: { step: string; current: number; total: number }) => void) => () => void
+  onMonitorStatusChanged: (callback: (status: { monitors: { name: string; status: string }[]; isPaused: boolean }) => void) => () => void
   getConfig: () => Promise<unknown>
   setConfig: (key: string, value: unknown) => Promise<unknown>
   openPath: (filePath: string) => Promise<void>

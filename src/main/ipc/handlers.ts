@@ -12,6 +12,7 @@ import {
   MONITOR_STATUS,
   MONITOR_START,
   MONITOR_STOP,
+  MONITOR_STATUS_CHANGED,
   DATA_SCREENSHOTS,
   DATA_ACTIVE_WINDOWS,
   DATA_DAILY_ANALYSIS,
@@ -32,6 +33,12 @@ export function registerIpcHandlers(
   analysisScheduler: AnalysisScheduler,
   mainWindow: BrowserWindow
 ): void {
+  monitorManager.setStatusChangeListener((status) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(MONITOR_STATUS_CHANGED, status)
+    }
+  })
+
   ipcMain.handle(MONITOR_STATUS, () => {
     return monitorManager.getStatus()
   })

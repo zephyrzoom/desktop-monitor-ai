@@ -27,6 +27,12 @@ export function Today(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
+    return window.electronAPI.onMonitorStatusChanged((status) => {
+      setMonitorStatus(status)
+    })
+  }, [])
+
+  useEffect(() => {
     return onAnalysisComplete(() => {
       loadData()
     })
