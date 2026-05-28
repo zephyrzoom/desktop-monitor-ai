@@ -28,6 +28,7 @@ export function Settings(): React.JSX.Element {
   const [config, setConfig] = useState<Config | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success')
 
   useEffect(() => {
     loadConfig()
@@ -50,10 +51,12 @@ export function Settings(): React.JSX.Element {
       await window.electronAPI.setConfig('analysis', config.analysis)
       await window.electronAPI.setConfig('monitoring', config.monitoring)
       await window.electronAPI.setConfig('cleanup', config.cleanup)
+      setMessageType('success')
       setMessage('配置已保存')
       setTimeout(() => setMessage(''), 3000)
     } catch (err) {
       console.error('Failed to save config:', err)
+      setMessageType('error')
       setMessage('保存失败')
     } finally {
       setSaving(false)
@@ -98,12 +101,13 @@ export function Settings(): React.JSX.Element {
         <div
           style={{
             padding: '12px 20px',
-            backgroundColor: message.includes('失败') ? 'var(--error)' : 'var(--success)',
+            backgroundColor: messageType === 'error' ? 'var(--error)' : 'var(--success)',
             borderRadius: '8px',
-            marginBottom: '24px'
+            marginBottom: '24px',
+            animation: 'fadeIn 0.3s ease-in'
           }}
         >
-          {message}
+          {messageType === 'error' ? '❌ ' : '✓ '}{message}
         </div>
       )}
 
