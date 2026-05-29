@@ -18,6 +18,7 @@ export function Today(): React.JSX.Element {
     isPaused: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [appUsageExpanded, setAppUsageExpanded] = useState(false)
   const { analyzing, analysisProgress, triggerAnalysis, onAnalysisComplete } = useAnalysis()
 
   const today = new Date().toISOString().split('T')[0]
@@ -106,12 +107,21 @@ export function Today(): React.JSX.Element {
       {stats?.appUsage && stats.appUsage.length > 0 && (
         <div className="card">
           <div className="card-title">应用使用时长</div>
-          {stats.appUsage.slice(0, 5).map((app, index) => (
+          {(appUsageExpanded ? stats.appUsage : stats.appUsage.slice(0, 5)).map((app, index) => (
             <div key={index} style={{ marginBottom: '8px' }}>
               <span>{app.app_name}: </span>
               <span>{Math.round(app.total_duration_ms / 60000)}分钟</span>
             </div>
           ))}
+          {stats.appUsage.length > 5 && (
+            <button
+              className="button"
+              style={{ marginTop: '8px', fontSize: '13px' }}
+              onClick={() => setAppUsageExpanded(!appUsageExpanded)}
+            >
+              {appUsageExpanded ? '收起' : '查看更多'}
+            </button>
+          )}
         </div>
       )}
 
