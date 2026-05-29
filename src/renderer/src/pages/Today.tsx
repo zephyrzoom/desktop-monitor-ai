@@ -115,8 +115,8 @@ export function Today(): React.JSX.Element {
           ))}
           {stats.appUsage.length > 5 && (
             <button
-              className="button"
-              style={{ marginTop: '8px', fontSize: '13px' }}
+              className="button button-secondary"
+              style={{ marginTop: '8px' }}
               onClick={() => setAppUsageExpanded(!appUsageExpanded)}
             >
               {appUsageExpanded ? '收起' : '查看更多'}
