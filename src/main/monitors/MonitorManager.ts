@@ -81,6 +81,7 @@ export class MonitorManager {
 
   pause(): void {
     this.isPaused = true
+    this.activeWindowMonitor.pause()
     this.screenshotMonitor.pause()
     this.notifyStatusChange()
     logger.info('Monitors paused (screen locked or suspended)')
@@ -89,6 +90,7 @@ export class MonitorManager {
   resume(): void {
     this.isPaused = false
     if (!this.isTimePaused) {
+      this.activeWindowMonitor.resume()
       this.screenshotMonitor.resume()
       logger.info('Monitors resumed')
     }
@@ -109,12 +111,16 @@ export class MonitorManager {
 
     if (!inRange && !this.isTimePaused) {
       this.isTimePaused = true
+      this.activeWindowMonitor.pause()
       this.screenshotMonitor.pause()
       this.notifyStatusChange()
       logger.info(`Monitors paused (outside monitoring hours ${startTime}-${endTime})`)
     } else if (inRange && this.isTimePaused) {
       this.isTimePaused = false
-      if (!this.isPaused) this.screenshotMonitor.resume()
+      if (!this.isPaused) {
+        this.activeWindowMonitor.resume()
+        this.screenshotMonitor.resume()
+      }
       this.notifyStatusChange()
       logger.info(`Monitors resumed (within monitoring hours ${startTime}-${endTime})`)
     }

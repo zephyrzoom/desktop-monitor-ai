@@ -74,6 +74,30 @@ export class ActiveWindowMonitor extends EventEmitter implements Monitor {
     this.currentScreenshotId = id
   }
 
+  pause(): void {
+    if (this.lastAppName && this.lastChangeTime) {
+      const durationMs = Date.now() - this.lastChangeTime.getTime()
+      if (durationMs > 0) {
+        insertActiveWindow(
+          this.lastAppName,
+          this.lastWindowTitle || '',
+          null,
+          null,
+          durationMs,
+          this.currentScreenshotId
+        )
+      }
+    }
+    this.lastAppName = null
+    this.lastWindowTitle = null
+    this.lastChangeTime = null
+    this.currentScreenshotId = null
+  }
+
+  resume(): void {
+    this.lastChangeTime = new Date()
+  }
+
   private async poll(): Promise<void> {
     try {
       const result = await activeWin()
