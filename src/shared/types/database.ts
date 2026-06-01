@@ -61,6 +61,23 @@ export interface PeriodicSummaryResult {
   summary: string
 }
 
+export interface YearlyCategoryItem {
+  subtitle: string
+  description: string
+}
+
+export interface YearlyCategory {
+  title: string
+  items: YearlyCategoryItem[]
+}
+
+export interface YearlySummaryResult {
+  period: string
+  opening: string
+  categories: YearlyCategory[]
+  summary: string
+}
+
 export interface AnalysisProgress {
   step: string
   current: number

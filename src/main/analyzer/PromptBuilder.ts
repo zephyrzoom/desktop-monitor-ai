@@ -89,6 +89,60 @@ ${dailyText || '无日报数据'}
 - summary 用 2-3 句话概括本${periodName}的整体工作情况`
 }
 
+export function buildYearlySummaryPrompt(
+  dailyAnalyses: { date: string; summary: string[] }[],
+  year: string
+): string {
+  const dailyText = dailyAnalyses.map((d) => `${d.date}: ${d.summary.join('；')}`).join('\n')
+
+  return `你是一个工作内容汇总助手。根据以下每日工作日报，生成一份年度工作事迹总结。
+
+年度: ${year}
+
+每日工作日报:
+${dailyText || '无日报数据'}
+
+请根据日报内容，归纳出本年度的主要工作事迹，按照以下格式输出。返回严格的 JSON 格式，不要包含任何其他文字:
+
+{
+  "period": "${year}",
+  "opening": "本年主要工作事迹如下：",
+  "categories": [
+    {
+      "title": "项目开发",
+      "items": [
+        {
+          "subtitle": "XX系统建设",
+          "description": "主导XX系统的设计与开发工作，完成了核心模块的架构设计和功能实现，推动系统从无到有上线运行。"
+        },
+        {
+          "subtitle": "YY功能优化",
+          "description": "对YY功能进行性能优化和体验改进，解决了多项用户反馈的问题。"
+        }
+      ]
+    },
+    {
+      "title": "技术研究",
+      "items": [
+        {
+          "subtitle": "新技术预研",
+          "description": "深入调研并实践了新技术方案，形成技术文档并在团队内推广。"
+        }
+      ]
+    }
+  ],
+  "summary": "综上所述，本年度在项目开发、技术研究等方面取得了显著成果，为团队和业务发展做出了积极贡献。"
+}
+
+注意:
+- 根据日报内容归纳 3-5 个大类（如：项目开发、技术工作、问题修复、工程化建设、团队协作、学习成长等），不要硬套模板
+- 每个大类下有 1-4 个子项
+- 每个子项的 subtitle 是简短标题（5-15字），description 是 2-3 句详细描述
+- opening 固定为 "本年主要工作事迹如下："
+- summary 用 2-3 句话做年度整体总结
+- 内容要基于日报数据，不要编造`
+}
+
 export function parseAnalysisResult(content: string): DailyAnalysisResult | null {
   try {
     const jsonMatch = content.match(/\{[\s\S]*\}/)

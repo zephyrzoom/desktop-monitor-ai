@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
 import { useAnalysis } from '../contexts/AnalysisContext'
-import type { PeriodicSummaryResult, PeriodicSummary } from '../../../shared/types/database'
+import type { YearlySummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
 export function YearlySummary(): React.JSX.Element {
   const [selectedYear, setSelectedYear] = useState('')
@@ -55,7 +55,9 @@ export function YearlySummary(): React.JSX.Element {
     triggerPeriodicSummary(selectedYear)
   }
 
-  const summaryResult: PeriodicSummaryResult | null = summary ? JSON.parse(summary.result_json) : null
+  const summaryResult: YearlySummaryResult | null = summary ? JSON.parse(summary.result_json) : null
+
+  const categoryNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
 
   return (
     <div>
@@ -98,36 +100,30 @@ export function YearlySummary(): React.JSX.Element {
       ) : summaryResult ? (
         <>
           <div className="summary-box">
-            <p>{summaryResult.summary}</p>
+            <p>{summaryResult.opening}</p>
           </div>
 
-          {summaryResult.highlights.length > 0 && (
-            <div className="card">
-              <div className="card-title">年度工作亮点</div>
-              <ul style={{ paddingLeft: '20px' }}>
-                {summaryResult.highlights.map((highlight, index) => (
-                  <li key={index} style={{ marginBottom: '8px' }}>
-                    {highlight}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {summaryResult.work_categories.length > 0 && (
-            <div className="card">
-              <div className="card-title">工作分类统计</div>
-              {summaryResult.work_categories.map((cat, index) => (
-                <div
-                  key={index}
-                  style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}
-                >
-                  <span>{cat.category}</span>
-                  <span>{cat.percentage}%</span>
+          {summaryResult.categories.map((category, catIndex) => (
+            <div className="card" key={catIndex} style={{ marginBottom: '16px' }}>
+              <div className="card-title">
+                {categoryNumbers[catIndex] || catIndex + 1}、{category.title}
+              </div>
+              {category.items.map((item, itemIndex) => (
+                <div key={itemIndex} style={{ marginBottom: '16px', paddingLeft: '8px' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '6px' }}>
+                    {itemIndex + 1}）{item.subtitle}
+                  </div>
+                  <p style={{ margin: 0, lineHeight: '1.8', color: 'var(--text-secondary)' }}>
+                    {item.description}
+                  </p>
                 </div>
               ))}
             </div>
-          )}
+          ))}
+
+          <div className="summary-box">
+            <p>{summaryResult.summary}</p>
+          </div>
         </>
       ) : selectedYear ? (
         <div className="empty-state">
