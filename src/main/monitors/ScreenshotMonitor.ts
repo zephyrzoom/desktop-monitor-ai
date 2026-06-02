@@ -5,6 +5,8 @@ import { app } from 'electron'
 import { nativeImage } from 'electron'
 import type { Monitor, MonitorStatus } from './types'
 import { insertScreenshot, getScreenshotsBeforeDate, deleteScreenshotsBeforeDate } from '../database/queries/screenshots'
+import { deleteActiveWindowsBeforeDate } from '../database/queries/activeWindows'
+import { deleteTaskMemoriesBeforeDate } from '../database/queries/taskMemory'
 import { getConfigValue } from '../config/store'
 import { logger } from '../utils/logger'
 
@@ -56,6 +58,16 @@ export class ScreenshotMonitor implements Monitor {
       const deleted = deleteScreenshotsBeforeDate(cutoffDate)
       if (deleted > 0) {
         logger.info(`Cleanup: removed ${deleted} screenshots before ${cutoffDate}`)
+      }
+
+      const deletedWindows = deleteActiveWindowsBeforeDate(cutoffDate)
+      if (deletedWindows > 0) {
+        logger.info(`Cleanup: removed ${deletedWindows} active_windows before ${cutoffDate}`)
+      }
+
+      const deletedMemories = deleteTaskMemoriesBeforeDate(cutoffDate)
+      if (deletedMemories > 0) {
+        logger.info(`Cleanup: removed ${deletedMemories} task_memories before ${cutoffDate}`)
       }
 
       // Remove empty date directories

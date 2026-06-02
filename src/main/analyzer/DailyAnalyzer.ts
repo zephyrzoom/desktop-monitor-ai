@@ -4,30 +4,34 @@ import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
 import { getScreenshotsByDate } from '../database/queries/screenshots'
-import { getAppUsageSummaryByDate, getAppUsageSummaryByTimeRange } from '../database/queries/activeWindows'
+import { getAppUsageSummaryByDate, getAppUsageSummaryByTimeRange, getWindowSwitchSequence } from '../database/queries/activeWindows'
 import { insertOrUpdateDailyAnalysis } from '../database/queries/dailyAnalysis'
-import { buildDailyAnalysisPrompt, buildConsolidationPrompt, buildSummaryPrompt, parseAnalysisResult } from './PromptBuilder'
+import { getActiveTaskMemories, insertTaskMemory, updateTaskMemory, expireStaleTaskMemories } from '../database/queries/taskMemory'
+import { buildDailyAnalysisPrompt, buildConsolidationPrompt, buildSummaryPrompt, buildTaskMemoryUpdatePrompt, parseAnalysisResult } from './PromptBuilder'
 import { getConfigValue } from '../config/store'
 import { logger } from '../utils/logger'
-import type { Screenshot, DailyAnalysisResult, AnalysisProgress, WorkItem } from '../../shared/types/database'
+import type { Screenshot, DailyAnalysisResult, AnalysisProgress, WorkItem, TaskMemory } from '../../shared/types/database'
 
 export class DailyAnalyzer {
   private openai: OpenAI
   private model: string
   private maxScreenshotsPerBatch: number
   private gapThresholdMinutes: number
+  private taskMemoryDays: number
 
   constructor(
     apiKey: string,
     baseUrl: string,
     model: string,
     maxScreenshotsPerBatch = 15,
-    gapThresholdMinutes = 15
+    gapThresholdMinutes = 15,
+    taskMemoryDays = 3
   ) {
     this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
     this.model = model || 'gpt-4o'
     this.maxScreenshotsPerBatch = maxScreenshotsPerBatch
     this.gapThresholdMinutes = gapThresholdMinutes
+    this.taskMemoryDays = taskMemoryDays
   }
 
   async analyze(date: string, onProgress?: (progress: AnalysisProgress) => void): Promise<DailyAnalysisResult | null> {
@@ -45,8 +49,9 @@ export class DailyAnalyzer {
 
     const sortedScreenshots = [...screenshots].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
     const batches = this.createBatches(sortedScreenshots)
+    const taskMemories = getActiveTaskMemories(this.taskMemoryDays)
 
-    logger.info(`[DailyAnalyzer] 分为 ${batches.length} 批处理，模型: ${this.model}`)
+    logger.info(`[DailyAnalyzer] 分为 ${batches.length} 批处理，模型: ${this.model}，活跃任务记忆: ${taskMemories.length} 条`)
 
     onProgress?.({ step: `已准备 ${sortedScreenshots.length} 张截图，分为 ${batches.length} 批`, current: 0, total: 0 })
 
@@ -57,9 +62,10 @@ export class DailyAnalyzer {
       onProgress?.({ step: `正在分析第 ${i + 1}/${batches.length} 批...`, current: i + 1, total: batches.length })
 
       const batchAppUsage = this.getBatchAppUsage(batches[i])
+      const batchWindowSequence = this.getBatchWindowSequence(batches[i])
       const priorContext = i > 0 ? [...priorWorkItems] : undefined
 
-      const result = await this.analyzeBatch(batches[i], batchAppUsage, date, priorContext)
+      const result = await this.analyzeBatch(batches[i], batchAppUsage, date, priorContext, batchWindowSequence, taskMemories)
       if (result) {
         allWorkItems.push(...result.work_items)
         priorWorkItems.push(...result.work_items)
@@ -77,6 +83,10 @@ export class DailyAnalyzer {
     allWorkItems.sort((a, b) => a.time_range.localeCompare(b.time_range))
 
     const consolidatedItems = await this.consolidateWorkItems(allWorkItems)
+
+    onProgress?.({ step: '正在更新任务记忆...', current: 0, total: 0 })
+
+    await this.updateTaskMemories(consolidatedItems, taskMemories, date)
 
     onProgress?.({ step: '正在生成工作总结...', current: 0, total: 0 })
 
@@ -155,11 +165,20 @@ export class DailyAnalyzer {
     return getAppUsageSummaryByTimeRange(startTime, endTime)
   }
 
+  private getBatchWindowSequence(screenshots: Screenshot[]): { time: string; app_name: string; window_title: string }[] {
+    if (screenshots.length === 0) return []
+    const startTime = screenshots[0].timestamp
+    const endTime = screenshots[screenshots.length - 1].timestamp
+    return getWindowSwitchSequence(startTime, endTime)
+  }
+
   private async analyzeBatch(
     screenshots: Screenshot[],
     appUsage: { app_name: string; total_duration_ms: number; count: number }[],
     _date: string,
-    priorWorkItems?: WorkItem[]
+    priorWorkItems?: WorkItem[],
+    windowSequence?: { time: string; app_name: string; window_title: string }[],
+    taskMemories?: TaskMemory[]
   ): Promise<DailyAnalysisResult | null> {
     try {
       const base64Images = await this.prepareImages(screenshots)
@@ -171,7 +190,7 @@ export class DailyAnalyzer {
         end: screenshots[screenshots.length - 1].timestamp.split('T')[1]?.substring(0, 5) || '23:59'
       }
 
-      const prompt = buildDailyAnalysisPrompt(appUsage, timeRange, priorWorkItems)
+      const prompt = buildDailyAnalysisPrompt(appUsage, timeRange, priorWorkItems, windowSequence, taskMemories)
 
       const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
         { type: 'text', text: prompt }
@@ -272,6 +291,61 @@ export class DailyAnalyzer {
     } catch (err) {
       logger.error('Work items consolidation error:', err)
       return workItems
+    }
+  }
+
+  private async updateTaskMemories(
+    workItems: WorkItem[],
+    existingMemories: TaskMemory[],
+    date: string
+  ): Promise<void> {
+    if (workItems.length === 0) return
+
+    try {
+      const prompt = buildTaskMemoryUpdatePrompt(workItems, existingMemories)
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1500
+      })
+
+      const responseContent = response.choices?.[0]?.message?.content
+      if (!responseContent) {
+        logger.warn('[DailyAnalyzer] 任务记忆更新: AI 返回为空')
+        return
+      }
+
+      const jsonMatch = responseContent.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) return
+
+      const result = JSON.parse(jsonMatch[0])
+      if (!result.task_updates || !Array.isArray(result.task_updates)) {
+        logger.warn('[DailyAnalyzer] 任务记忆更新: AI 返回格式无效')
+        return
+      }
+
+      const lastTime = workItems[workItems.length - 1].time_range.split('-')[1] || '23:59'
+
+      for (const update of result.task_updates) {
+        const action = String(update.action || '')
+        const summary = String(update.task_summary || '')
+        const category = String(update.category || '其他')
+        const apps = Array.isArray(update.app_cluster) ? update.app_cluster.map(String) : []
+        const durationMs = Number(update.duration_ms) || 0
+        const memoryId = update.memory_id as number | undefined
+
+        if (action === 'continue' && memoryId) {
+          updateTaskMemory(memoryId, date, lastTime, durationMs)
+          logger.info(`[DailyAnalyzer] 更新任务记忆 #${memoryId}: ${summary}`)
+        } else if (action === 'new' && summary) {
+          insertTaskMemory(summary, category, apps, date, lastTime, durationMs)
+          logger.info(`[DailyAnalyzer] 新增任务记忆: ${summary}`)
+        }
+      }
+
+      expireStaleTaskMemories(this.taskMemoryDays)
+    } catch (err) {
+      logger.error('Task memory update error:', err)
     }
   }
 

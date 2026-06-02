@@ -105,18 +105,20 @@ DailyAnalyzer.analyze(date)
     │
     ├── 1. 查询当天所有截图
     ├── 2. 查询活动窗口记录
-    ├── 3. 截图压缩 (1280x720)
-    ├── 4. 截图采样 (优先窗口变化截图)
+    ├── 3. 查询活跃任务记忆 (最近 N 天)
+    ├── 4. 截图压缩 (1280x720)
+    ├── 5. 截图采样 (优先窗口变化截图)
     │
-    ├── 5. 分批处理 (每批最多5张)
+    ├── 6. 分批处理 (每批最多5张)
     │      │
-    │      ├─► 构建 Prompt (截图 + 窗口摘要)
+    │      ├─► 构建 Prompt (截图 + 窗口序列 + 任务记忆)
     │      ├─► 调用 OpenAI 兼容 API
     │      └─► 解析返回结果
     │
-    ├── 6. 合并多批结果
-    ├── 7. 按时间排序
-    └── 8. 存入 daily_analysis 表
+    ├── 7. 合并多批结果
+    ├── 8. 按时间排序
+    ├── 9. 更新任务记忆 (新增/更新/归档)
+    └── 10. 存入 daily_analysis 表
 ```
 
 ---
@@ -170,6 +172,32 @@ DailyAnalyzer.analyze(date)
 | result_json | TEXT | 汇总结果JSON |
 | created_at | TEXT | 记录创建时间 |
 
+#### task_memory - 任务记忆
+
+用于跨天识别用户的延续性任务，解决"断断续续做同一件事"的识别问题。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PK | 自增主键 |
+| task_summary | TEXT | 任务描述（如"开发用户登录模块"） |
+| category | TEXT | 任务分类 |
+| app_cluster | TEXT | 关联应用组合（JSON 数组，如 ["VS Code","Terminal","Chrome"]） |
+| last_active_date | TEXT | 最后活跃日期 YYYY-MM-DD |
+| last_active_time | TEXT | 最后活跃时间 HH:MM |
+| cumulative_duration_ms | INTEGER | 累计持续时长(毫秒) |
+| status | TEXT | 状态: active / completed |
+| created_at | TEXT | 记录创建时间 |
+| updated_at | TEXT | 记录更新时间 |
+
+**工作原理：**
+
+1. 每日分析时，查询最近 N 天内状态为 `active` 的任务记忆，作为上下文传给 AI
+2. AI 分析当天数据时，能识别出"用户今天继续做之前的任务"或"开始了新任务"
+3. 分析完成后，自动更新任务记忆：
+   - 今天继续的任务 → 更新 last_active_date/time、累加时长
+   - 新开始的任务 → 新增记忆
+   - 最近 N 天未出现的旧任务 → 标记为 completed
+
 ### 4.2 数据关系
 
 ```
@@ -179,6 +207,8 @@ screenshots 1 ──── N active_windows
 daily_analysis (独立存储，按日期查询)
 
 periodic_summary (独立存储，按周期类型+标签查询)
+
+task_memory (独立存储，按 status + last_active_date 查询)
 ```
 
 ---
@@ -504,7 +534,8 @@ const electronAPI = {
     "baseUrl": "https://api.openai.com/v1",
     "model": "gpt-4o",
     "scheduleTime": "23:00",
-    "maxScreenshotsPerBatch": 5
+    "maxScreenshotsPerBatch": 5,
+    "taskMemoryDays": 3
   },
   "cleanup": {
     "retentionDays": 30

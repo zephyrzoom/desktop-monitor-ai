@@ -18,6 +18,7 @@ interface Config {
     scheduleTime: string
     maxScreenshotsPerBatch: number
     gapThresholdMinutes: number
+    taskMemoryDays: number
   }
   cleanup: {
     retentionDays: number
@@ -212,6 +213,27 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>任务记忆回溯天数</label>
+            <input
+              type="number"
+              min={1}
+              max={30}
+              value={config.analysis.taskMemoryDays}
+              onChange={(e) => updateAnalysis('taskMemoryDays', parseInt(e.target.value))}
+              style={{
+                width: '100px',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)'
+              }}
+            />
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+              分析时回溯最近 N 天的任务记忆，用于识别跨天延续的任务
+            </span>
           </div>
         </div>
       </div>

@@ -76,6 +76,24 @@ export function getAppUsageSummaryByTimeRange(
     .all(startTime, endTime) as { app_name: string; total_duration_ms: number; count: number }[]
 }
 
+export function getWindowSwitchSequence(
+  startTime: string,
+  endTime: string
+): { time: string; app_name: string; window_title: string }[] {
+  const db = getDatabase()
+  return db
+    .prepare(
+      `SELECT
+         substr(timestamp, 12, 5) as time,
+         app_name,
+         window_title
+       FROM active_windows
+       WHERE timestamp >= ? AND timestamp <= ?
+       ORDER BY timestamp ASC`
+    )
+    .all(startTime, endTime) as { time: string; app_name: string; window_title: string }[]
+}
+
 export function deleteActiveWindowsBeforeDate(date: string): number {
   const db = getDatabase()
   const result = db

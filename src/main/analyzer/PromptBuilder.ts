@@ -1,9 +1,11 @@
-import type { DailyAnalysisResult, WorkItem } from '../../shared/types/database'
+import type { DailyAnalysisResult, WorkItem, TaskMemory } from '../../shared/types/database'
 
 export function buildDailyAnalysisPrompt(
   appUsageSummary: { app_name: string; total_duration_ms: number; count: number }[],
   timeRange: { start: string; end: string },
-  priorWorkItems?: WorkItem[]
+  priorWorkItems?: WorkItem[],
+  windowSequence?: { time: string; app_name: string; window_title: string }[],
+  taskMemories?: TaskMemory[]
 ): string {
   const appUsageText = appUsageSummary
     .map((app) => {
@@ -17,13 +19,28 @@ export function buildDailyAnalysisPrompt(
       ? `\n之前已识别的工作内容（请避免重复）:\n${priorWorkItems.map((item) => `- ${item.time_range}: ${item.activity} (${item.app})`).join('\n')}\n`
       : ''
 
+  const windowSequenceText =
+    windowSequence && windowSequence.length > 0
+      ? `\n应用切换序列（按时间顺序）:\n${windowSequence.map((w) => `${w.time} ${w.app_name}${w.window_title ? ' - ' + w.window_title : ''}`).join('\n')}\n`
+      : ''
+
+  const taskMemoryText =
+    taskMemories && taskMemories.length > 0
+      ? `\n用户近期的活跃任务（可能与当前工作相关）:\n${taskMemories
+          .map((m) => {
+            const apps = JSON.parse(m.app_cluster) as string[]
+            return `- [${m.category}] ${m.task_summary}（关联应用: ${apps.join('、')}，最后活跃: ${m.last_active_date} ${m.last_active_time}）`
+          })
+          .join('\n')}\n`
+      : ''
+
   return `你是一个工作内容分析助手。根据以下桌面截图和应用使用记录，分析用户在这段时间内做了什么工作。
 
 时间范围: ${timeRange.start} - ${timeRange.end}
 
 应用使用记录:
 ${appUsageText || '无应用使用记录'}
-${priorContext}
+${windowSequenceText}${taskMemoryText}${priorContext}
 请分析这些截图，识别用户的具体工作内容。返回严格的 JSON 格式，不要包含任何其他文字:
 
 {
@@ -43,6 +60,8 @@ ${priorContext}
 - category 可以是: 编程开发、文档写作、数据分析、会议沟通、网页浏览、设计工作、学习研究、邮件处理、其他
 - 如果截图内容不清晰或无法判断，请基于应用使用记录推测
 - 如果这段时间与之前的工作内容相关联，请确保你的分析在时间和活动上与已有内容保持连贯
+- 如果用户在多个应用间频繁切换做同一件事（如在编辑器、终端、浏览器间切换写代码），请将其识别为同一个工作任务，不要拆开
+- 如果用户的活跃任务与当前活动匹配，请在 work_items 中关联同一任务，保持描述一致性
 - summary 用一两句话概括这段时间内的主要工作内容`
 }
 
@@ -204,6 +223,64 @@ ${workItemsText}
     }
   ]
 }`
+}
+
+export function buildTaskMemoryUpdatePrompt(
+  workItems: WorkItem[],
+  existingMemories: TaskMemory[]
+): string {
+  const workItemsText = workItems
+    .map((item) => `- ${item.time_range}: ${item.activity} (${item.app}, ${item.category})`)
+    .join('\n')
+
+  const memoriesText =
+    existingMemories.length > 0
+      ? existingMemories
+          .map((m) => {
+            const apps = JSON.parse(m.app_cluster) as string[]
+            return `- [ID:${m.id}] [${m.category}] ${m.task_summary}（关联应用: ${apps.join('、')}，最后活跃: ${m.last_active_date}）`
+          })
+          .join('\n')
+      : '无已有任务记忆'
+
+  return `你是一个任务追踪助手。根据今天识别出的工作内容和用户的已有任务记忆，判断哪些工作是已有任务的延续，哪些是新任务。
+
+今天的工作内容:
+${workItemsText}
+
+已有任务记忆:
+${memoriesText}
+
+请返回严格的 JSON 格式，不要包含任何其他文字:
+
+{
+  "task_updates": [
+    {
+      "action": "continue",
+      "memory_id": 1,
+      "task_summary": "开发用户登录模块",
+      "category": "编程开发",
+      "app_cluster": ["VS Code", "Terminal"],
+      "duration_ms": 3600000
+    },
+    {
+      "action": "new",
+      "task_summary": "修复线上告警问题",
+      "category": "编程开发",
+      "app_cluster": ["VS Code", "Chrome"],
+      "duration_ms": 1800000
+    }
+  ]
+}
+
+规则:
+- action 为 "continue" 表示延续已有任务（必须提供 memory_id），"new" 表示新任务
+- 如果今天的工作内容与已有任务记忆匹配（相似的活动描述或相同的应用组合），标记为 continue
+- 如果是全新任务，标记为 new
+- task_summary 用简短的中文描述任务（5-20字）
+- app_cluster 是该任务关联的应用列表
+- duration_ms 是今天该任务的累计时长（毫秒），根据时间范围估算
+- 如果没有需要更新的内容，返回空数组: {"task_updates": []}`
 }
 
 export function buildSummaryPrompt(

@@ -94,7 +94,8 @@ export class AnalysisScheduler {
         config.baseUrl,
         config.model,
         config.maxScreenshotsPerBatch,
-        config.gapThresholdMinutes
+        config.gapThresholdMinutes,
+        config.taskMemoryDays
       )
       this.summaryGenerator = new SummaryGenerator(config.apiKey, config.baseUrl, config.model)
     }

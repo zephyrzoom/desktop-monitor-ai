@@ -20,6 +20,7 @@ interface Config {
     scheduleTime: string
     maxScreenshotsPerBatch: number
     gapThresholdMinutes: number
+    taskMemoryDays: number
   }
   cleanup: {
     retentionDays: number
@@ -43,7 +44,8 @@ const defaults: Config = {
     model: 'gpt-4o',
     scheduleTime: '23:00',
     maxScreenshotsPerBatch: 15,
-    gapThresholdMinutes: 15
+    gapThresholdMinutes: 15,
+    taskMemoryDays: 3
   },
   cleanup: {
     retentionDays: 30

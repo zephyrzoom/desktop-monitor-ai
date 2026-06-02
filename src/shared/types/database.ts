@@ -36,6 +36,19 @@ export interface PeriodicSummary {
   created_at: string
 }
 
+export interface TaskMemory {
+  id: number
+  task_summary: string
+  category: string
+  app_cluster: string // JSON array string, e.g. '["VS Code","Terminal"]'
+  last_active_date: string
+  last_active_time: string
+  cumulative_duration_ms: number
+  status: 'active' | 'completed'
+  created_at: string
+  updated_at: string
+}
+
 export interface MonitorState {
   key: string
   value: string

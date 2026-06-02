@@ -51,7 +51,22 @@ const migrations: string[] = [
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL,
     updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now'))
-  )`
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS task_memory (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_summary          TEXT    NOT NULL,
+    category              TEXT    NOT NULL DEFAULT '其他',
+    app_cluster           TEXT    NOT NULL DEFAULT '[]',
+    last_active_date      TEXT    NOT NULL,
+    last_active_time      TEXT    NOT NULL,
+    cumulative_duration_ms INTEGER NOT NULL DEFAULT 0,
+    status                TEXT    NOT NULL DEFAULT 'active',
+    created_at            TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    updated_at            TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_task_memory_status ON task_memory(status)`,
+  `CREATE INDEX IF NOT EXISTS idx_task_memory_date ON task_memory(last_active_date)`
 ]
 
 export function runMigrations(db: Database.Database): void {
