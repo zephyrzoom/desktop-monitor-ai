@@ -55,7 +55,14 @@ export function QuarterlySummary(): React.JSX.Element {
     triggerPeriodicSummary(selectedQuarter)
   }
 
-  const summaryResult: PeriodicSummaryResult | null = summary ? JSON.parse(summary.result_json) : null
+  let summaryResult: PeriodicSummaryResult | null = null
+  if (summary) {
+    try {
+      summaryResult = JSON.parse(summary.result_json) as PeriodicSummaryResult
+    } catch {
+      summaryResult = null
+    }
+  }
 
   return (
     <div>

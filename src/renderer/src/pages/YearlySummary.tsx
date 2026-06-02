@@ -55,7 +55,14 @@ export function YearlySummary(): React.JSX.Element {
     triggerPeriodicSummary(selectedYear)
   }
 
-  const summaryResult: YearlySummaryResult | null = summary ? JSON.parse(summary.result_json) : null
+  let summaryResult: YearlySummaryResult | null = null
+  if (summary) {
+    try {
+      summaryResult = JSON.parse(summary.result_json) as YearlySummaryResult
+    } catch {
+      summaryResult = null
+    }
+  }
 
   const categoryNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
 

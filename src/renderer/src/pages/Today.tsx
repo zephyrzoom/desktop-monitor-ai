@@ -72,9 +72,14 @@ export function Today(): React.JSX.Element {
     return <div className="loading">加载中...</div>
   }
 
-  const analysisResult: DailyAnalysisResult | null = stats?.analysis
-    ? JSON.parse(stats.analysis.result_json)
-    : null
+  let analysisResult: DailyAnalysisResult | null = null
+  if (stats?.analysis) {
+    try {
+      analysisResult = JSON.parse(stats.analysis.result_json) as DailyAnalysisResult
+    } catch {
+      analysisResult = null
+    }
+  }
   const summaryItems: string[] = Array.isArray(analysisResult?.summary)
     ? analysisResult.summary
     : typeof analysisResult?.summary === 'string'

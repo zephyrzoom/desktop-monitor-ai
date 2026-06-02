@@ -51,7 +51,14 @@ export function DailyReport(): React.JSX.Element {
     triggerAnalysis(selectedDate)
   }
 
-  const analysisResult: DailyAnalysisResult | null = analysis ? JSON.parse(analysis.result_json) : null
+  let analysisResult: DailyAnalysisResult | null = null
+  if (analysis) {
+    try {
+      analysisResult = JSON.parse(analysis.result_json) as DailyAnalysisResult
+    } catch {
+      analysisResult = null
+    }
+  }
   const summaryItems: string[] = Array.isArray(analysisResult?.summary)
     ? analysisResult.summary
     : typeof analysisResult?.summary === 'string'
