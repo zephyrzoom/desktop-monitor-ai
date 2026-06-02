@@ -75,7 +75,10 @@ export function Today(): React.JSX.Element {
   let analysisResult: DailyAnalysisResult | null = null
   if (stats?.analysis) {
     try {
-      analysisResult = JSON.parse(stats.analysis.result_json) as DailyAnalysisResult
+      const parsed = JSON.parse(stats.analysis.result_json)
+      if (parsed && Array.isArray(parsed.work_items)) {
+        analysisResult = parsed as DailyAnalysisResult
+      }
     } catch {
       analysisResult = null
     }

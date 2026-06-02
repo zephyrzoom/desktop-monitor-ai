@@ -54,7 +54,10 @@ export function DailyReport(): React.JSX.Element {
   let analysisResult: DailyAnalysisResult | null = null
   if (analysis) {
     try {
-      analysisResult = JSON.parse(analysis.result_json) as DailyAnalysisResult
+      const parsed = JSON.parse(analysis.result_json)
+      if (parsed && Array.isArray(parsed.work_items)) {
+        analysisResult = parsed as DailyAnalysisResult
+      }
     } catch {
       analysisResult = null
     }

@@ -58,7 +58,10 @@ export function YearlySummary(): React.JSX.Element {
   let summaryResult: YearlySummaryResult | null = null
   if (summary) {
     try {
-      summaryResult = JSON.parse(summary.result_json) as YearlySummaryResult
+      const parsed = JSON.parse(summary.result_json)
+      if (parsed && Array.isArray(parsed.categories) && parsed.opening && parsed.summary) {
+        summaryResult = parsed as YearlySummaryResult
+      }
     } catch {
       summaryResult = null
     }
@@ -115,7 +118,7 @@ export function YearlySummary(): React.JSX.Element {
               <div className="card-title">
                 {categoryNumbers[catIndex] || catIndex + 1}、{category.title}
               </div>
-              {category.items.map((item, itemIndex) => (
+              {(category.items || []).map((item, itemIndex) => (
                 <div key={itemIndex} style={{ marginBottom: '16px', paddingLeft: '8px' }}>
                   <div style={{ fontWeight: 600, marginBottom: '6px' }}>
                     {itemIndex + 1}）{item.subtitle}
