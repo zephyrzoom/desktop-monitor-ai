@@ -80,7 +80,7 @@ export function DailyReport(): React.JSX.Element {
         <div className="card" style={{ marginBottom: '24px' }}>
           <div className="card-title">已分析的日期</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {allAnalyses.slice(-5).reverse().map((a) => (
+            {allAnalyses.slice(0, 5).map((a) => (
               <button
                 key={a.date}
                 className={`button ${a.date === selectedDate ? 'button-primary' : 'button-secondary'}`}
