@@ -34,13 +34,6 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     return unsubscribe
   }, [])
 
-  useEffect(() => {
-    const unsubscribe = window.electronAPI.onAnalysisComplete(() => {
-      notifyComplete()
-    })
-    return unsubscribe
-  }, [notifyComplete])
-
   const onAnalysisComplete = useCallback((callback: () => void) => {
     completeCallbacks.current.add(callback)
     return () => {
@@ -51,6 +44,13 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
   const notifyComplete = useCallback(() => {
     completeCallbacks.current.forEach((cb) => cb())
   }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onAnalysisComplete(() => {
+      notifyComplete()
+    })
+    return unsubscribe
+  }, [notifyComplete])
 
   const triggerAnalysis = useCallback(async (date: string) => {
     setAnalyzing(true)
