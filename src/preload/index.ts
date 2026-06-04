@@ -11,6 +11,7 @@ import {
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
   ANALYSIS_STATUS,
+  ANALYSIS_RESULT,
   SUMMARY_TRIGGER,
   CONFIG_GET,
   CONFIG_SET,
@@ -51,6 +52,16 @@ const electronAPI = {
     ipcRenderer.on(MONITOR_STATUS_CHANGED, listener)
     return () => {
       ipcRenderer.removeListener(MONITOR_STATUS_CHANGED, listener)
+    }
+  },
+
+  onAnalysisComplete: (callback: (date: string) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, date: string) => {
+      callback(date)
+    }
+    ipcRenderer.on(ANALYSIS_RESULT, listener)
+    return () => {
+      ipcRenderer.removeListener(ANALYSIS_RESULT, listener)
     }
   },
 

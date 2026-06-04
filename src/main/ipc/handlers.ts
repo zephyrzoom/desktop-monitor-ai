@@ -21,6 +21,7 @@ import {
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
   ANALYSIS_STATUS,
+  ANALYSIS_RESULT,
   SUMMARY_TRIGGER,
   CONFIG_GET,
   CONFIG_SET,
@@ -37,6 +38,12 @@ export function registerIpcHandlers(
   monitorManager.setStatusChangeListener((status) => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send(MONITOR_STATUS_CHANGED, status)
+    }
+  })
+
+  analysisScheduler.setOnAnalysisComplete((date) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(ANALYSIS_RESULT, date)
     }
   })
 

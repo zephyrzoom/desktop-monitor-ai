@@ -9,6 +9,11 @@ export class AnalysisScheduler {
   private summaryGenerator: SummaryGenerator | null = null
   private schedulerInterval: ReturnType<typeof setInterval> | null = null
   private isRunning = false
+  private analysisCompleteCallback: ((date: string) => void) | null = null
+
+  setOnAnalysisComplete(callback: (date: string) => void): void {
+    this.analysisCompleteCallback = callback
+  }
 
   start(): void {
     this.initClients()
@@ -111,7 +116,9 @@ export class AnalysisScheduler {
     if (currentTime === config.scheduleTime) {
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       logger.info(`[AnalysisScheduler] 定时触发分析: ${today} ${currentTime}`)
-      this.triggerDailyAnalysis(today)
+      this.triggerDailyAnalysis(today).then(() => {
+        this.analysisCompleteCallback?.(today)
+      })
     }
   }
 }

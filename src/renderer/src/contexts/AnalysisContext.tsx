@@ -34,6 +34,13 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     return unsubscribe
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onAnalysisComplete(() => {
+      notifyComplete()
+    })
+    return unsubscribe
+  }, [notifyComplete])
+
   const onAnalysisComplete = useCallback((callback: () => void) => {
     completeCallbacks.current.add(callback)
     return () => {
