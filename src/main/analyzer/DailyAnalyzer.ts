@@ -10,6 +10,7 @@ import { getActiveTaskMemories, insertTaskMemory, updateTaskMemory, expireStaleT
 import { buildDailyAnalysisPrompt, buildConsolidationPrompt, buildSummaryPrompt, buildTaskMemoryUpdatePrompt, parseAnalysisResult } from './PromptBuilder'
 import { getConfigValue } from '../config/store'
 import { logger } from '../utils/logger'
+import { withRetry } from '../utils/retry'
 import type { Screenshot, DailyAnalysisResult, AnalysisProgress, WorkItem, TaskMemory } from '../../shared/types/database'
 
 export class DailyAnalyzer {
@@ -18,6 +19,7 @@ export class DailyAnalyzer {
   private maxScreenshotsPerBatch: number
   private gapThresholdMinutes: number
   private taskMemoryDays: number
+  private maxRetries: number
 
   constructor(
     apiKey: string,
@@ -25,13 +27,15 @@ export class DailyAnalyzer {
     model: string,
     maxScreenshotsPerBatch = 15,
     gapThresholdMinutes = 15,
-    taskMemoryDays = 3
+    taskMemoryDays = 3,
+    maxRetries = 3
   ) {
     this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
     this.model = model || 'gpt-4o'
     this.maxScreenshotsPerBatch = maxScreenshotsPerBatch
     this.gapThresholdMinutes = gapThresholdMinutes
     this.taskMemoryDays = taskMemoryDays
+    this.maxRetries = maxRetries
   }
 
   async analyze(date: string, onProgress?: (progress: AnalysisProgress) => void): Promise<DailyAnalysisResult | null> {
@@ -203,22 +207,21 @@ export class DailyAnalyzer {
         })
       }
 
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content }],
-        max_tokens: 2000
-      })
-
-      if (!response.choices?.length) {
-        logger.error('AI analysis: empty response', JSON.stringify(response))
-        return null
-      }
+      const response = await withRetry(
+        () => this.openai.chat.completions.create({
+          model: this.model,
+          messages: [{ role: 'user', content }],
+          max_tokens: 2000
+        }),
+        {
+          maxRetries: this.maxRetries,
+          label: 'analyzeBatch',
+          validate: (res) => !!(res.choices?.length && res.choices[0]?.message?.content)
+        }
+      )
 
       const responseContent = response.choices[0]?.message?.content
-      if (!responseContent) {
-        logger.warn('[DailyAnalyzer] AI 返回内容为空')
-        return null
-      }
+      if (!responseContent) return null
 
       logger.info(`[DailyAnalyzer] AI 分析批次完成，响应长度: ${responseContent.length} 字符`)
       return parseAnalysisResult(responseContent)
@@ -236,11 +239,18 @@ export class DailyAnalyzer {
     try {
       logger.info(`[DailyAnalyzer] 调用 AI 生成工作总结，${workItems.length} 个工作项`)
       const prompt = buildSummaryPrompt(workItems, fullDayAppUsage)
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500
-      })
+      const response = await withRetry(
+        () => this.openai.chat.completions.create({
+          model: this.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 500
+        }),
+        {
+          maxRetries: this.maxRetries,
+          label: 'generateOverallSummary',
+          validate: (res) => !!(res.choices?.length && res.choices[0]?.message?.content)
+        }
+      )
       const content = response.choices?.[0]?.message?.content || '[]'
       logger.info(`[DailyAnalyzer] AI 工作总结生成完成，响应长度: ${content.length} 字符`)
       const jsonMatch = content.match(/\[[\s\S]*\]/)
@@ -263,11 +273,18 @@ export class DailyAnalyzer {
     try {
       logger.info(`[DailyAnalyzer] 调用 AI 合并 ${workItems.length} 个工作项`)
       const prompt = buildConsolidationPrompt(workItems)
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2000
-      })
+      const response = await withRetry(
+        () => this.openai.chat.completions.create({
+          model: this.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000
+        }),
+        {
+          maxRetries: this.maxRetries,
+          label: 'consolidateWorkItems',
+          validate: (res) => !!(res.choices?.length && res.choices[0]?.message?.content)
+        }
+      )
 
       const responseContent = response.choices?.[0]?.message?.content
       if (!responseContent) return workItems
@@ -303,17 +320,21 @@ export class DailyAnalyzer {
 
     try {
       const prompt = buildTaskMemoryUpdatePrompt(workItems, existingMemories)
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1500
-      })
+      const response = await withRetry(
+        () => this.openai.chat.completions.create({
+          model: this.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1500
+        }),
+        {
+          maxRetries: this.maxRetries,
+          label: 'updateTaskMemories',
+          validate: (res) => !!(res.choices?.length && res.choices[0]?.message?.content)
+        }
+      )
 
       const responseContent = response.choices?.[0]?.message?.content
-      if (!responseContent) {
-        logger.warn('[DailyAnalyzer] 任务记忆更新: AI 返回为空')
-        return
-      }
+      if (!responseContent) return
 
       const jsonMatch = responseContent.match(/\{[\s\S]*\}/)
       if (!jsonMatch) return

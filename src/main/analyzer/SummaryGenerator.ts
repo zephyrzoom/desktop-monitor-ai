@@ -3,15 +3,18 @@ import { getDailyAnalysisByDateRange } from '../database/queries/dailyAnalysis'
 import { insertOrUpdatePeriodicSummary } from '../database/queries/periodicSummary'
 import { buildPeriodicSummaryPrompt, buildYearlySummaryPrompt } from './PromptBuilder'
 import { logger } from '../utils/logger'
+import { withRetry } from '../utils/retry'
 import type { PeriodicSummaryResult, YearlySummaryResult } from '../../shared/types/database'
 
 export class SummaryGenerator {
   private openai: OpenAI
   private model: string
+  private maxRetries: number
 
-  constructor(apiKey: string, baseUrl: string, model?: string) {
+  constructor(apiKey: string, baseUrl: string, model?: string, maxRetries = 3) {
     this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
     this.model = model || 'gpt-4o'
+    this.maxRetries = maxRetries
   }
 
   async generateQuarterly(year: number, quarter: number): Promise<PeriodicSummaryResult | null> {
@@ -49,22 +52,21 @@ export class SummaryGenerator {
       const prompt = buildYearlySummaryPrompt(dailyData, periodLabel)
 
       logger.info(`[SummaryGenerator] 调用 AI 生成 ${periodLabel} 年度总结，模型: ${this.model}`)
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4000
-      })
-
-      if (!response.choices?.length) {
-        logger.error('Yearly summary generation: empty response', JSON.stringify(response))
-        return null
-      }
+      const response = await withRetry(
+        () => this.openai.chat.completions.create({
+          model: this.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4000
+        }),
+        {
+          maxRetries: this.maxRetries,
+          label: 'generateYearly',
+          validate: (res) => !!(res.choices?.length && res.choices[0]?.message?.content)
+        }
+      )
 
       const content = response.choices[0]?.message?.content
-      if (!content) {
-        logger.warn(`[SummaryGenerator] AI 返回内容为空`)
-        return null
-      }
+      if (!content) return null
 
       logger.info(`[SummaryGenerator] AI 响应完成，长度: ${content.length} 字符`)
 
@@ -111,22 +113,21 @@ export class SummaryGenerator {
       const prompt = buildPeriodicSummaryPrompt(dailyData, periodType, periodLabel)
 
       logger.info(`[SummaryGenerator] 调用 AI 生成 ${periodLabel} 总结，模型: ${this.model}`)
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2000
-      })
-
-      if (!response.choices?.length) {
-        logger.error('Summary generation: empty response', JSON.stringify(response))
-        return null
-      }
+      const response = await withRetry(
+        () => this.openai.chat.completions.create({
+          model: this.model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000
+        }),
+        {
+          maxRetries: this.maxRetries,
+          label: 'generateQuarterly',
+          validate: (res) => !!(res.choices?.length && res.choices[0]?.message?.content)
+        }
+      )
 
       const content = response.choices[0]?.message?.content
-      if (!content) {
-        logger.warn(`[SummaryGenerator] AI 返回内容为空`)
-        return null
-      }
+      if (!content) return null
 
       logger.info(`[SummaryGenerator] AI 响应完成，长度: ${content.length} 字符`)
 

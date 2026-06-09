@@ -21,6 +21,7 @@ interface Config {
     maxScreenshotsPerBatch: number
     gapThresholdMinutes: number
     taskMemoryDays: number
+    maxRetries: number
   }
   cleanup: {
     retentionDays: number
@@ -45,7 +46,8 @@ const defaults: Config = {
     scheduleTime: '23:00',
     maxScreenshotsPerBatch: 15,
     gapThresholdMinutes: 15,
-    taskMemoryDays: 3
+    taskMemoryDays: 3,
+    maxRetries: 3
   },
   cleanup: {
     retentionDays: 30
