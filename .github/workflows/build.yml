@@ -64,8 +64,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package
+      - name: Package deb
         run: npx electron-builder --linux deb --arm64 --publish never
+
+      - name: Package AppImage
+        run: npx electron-builder --linux AppImage --arm64 --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -73,6 +76,7 @@ jobs:
           name: linux-arm64-build
           path: |
             dist/*.deb
+            dist/*.AppImage
           if-no-files-found: error
 
   release:
@@ -98,5 +102,6 @@ jobs:
           files: |
             dist/*.exe
             dist/*.deb
+            dist/*.AppImage
           draft: false
           prerelease: false
