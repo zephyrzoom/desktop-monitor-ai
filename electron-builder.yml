@@ -32,5 +32,6 @@ dmg:
 linux:
   target:
     - AppImage
+    - deb
   category: Utility
 npmRebuild: true
