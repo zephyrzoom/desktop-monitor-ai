@@ -34,4 +34,5 @@ linux:
     - AppImage
     - deb
   category: Utility
+  maintainer: desktop-monitor@example.com
 npmRebuild: true
