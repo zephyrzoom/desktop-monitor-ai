@@ -26,7 +26,7 @@ export function getPeriodicSummary(
       `SELECT * FROM periodic_summary
        WHERE period_type = ? AND period_label = ?`
     )
-    .get(periodType, periodLabel) as PeriodicSummary | undefined
+    .get(periodType, periodLabel) as unknown as PeriodicSummary | undefined
   return row || null
 }
 
@@ -38,5 +38,5 @@ export function getPeriodicSummariesByType(periodType: 'quarter' | 'year'): Peri
        WHERE period_type = ?
        ORDER BY period_label DESC`
     )
-    .all(periodType) as PeriodicSummary[]
+    .all(periodType) as unknown as PeriodicSummary[]
 }

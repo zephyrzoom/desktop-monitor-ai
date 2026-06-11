@@ -24,6 +24,9 @@ interface Config {
   cleanup: {
     retentionDays: number
   }
+  storage: {
+    backend: string
+  }
 }
 
 export function Settings(): React.JSX.Element {
@@ -53,6 +56,7 @@ export function Settings(): React.JSX.Element {
       await window.electronAPI.setConfig('analysis', config.analysis)
       await window.electronAPI.setConfig('monitoring', config.monitoring)
       await window.electronAPI.setConfig('cleanup', config.cleanup)
+      await window.electronAPI.setConfig('storage', config.storage)
       setMessageType('success')
       setMessage('配置已保存')
       setTimeout(() => setMessage(''), 3000)
@@ -86,6 +90,14 @@ export function Settings(): React.JSX.Element {
     setConfig({
       ...config,
       cleanup: { ...config.cleanup, [key]: value }
+    })
+  }
+
+  function updateStorage(key: keyof Config['storage'], value: string): void {
+    if (!config) return
+    setConfig({
+      ...config,
+      storage: { ...config.storage, [key]: value }
     })
   }
 
@@ -403,6 +415,32 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             />
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">存储配置</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>数据库类型</label>
+            <select
+              value={config.storage?.backend || 'better-sqlite3'}
+              onChange={(e) => updateStorage('backend', e.target.value)}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)'
+              }}
+            >
+              <option value="better-sqlite3">SQLite (better-sqlite3)</option>
+              <option value="sql.js">SQLite (sql.js 纯JS版)</option>
+            </select>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+              切换数据库类型后需要重启应用才能生效
+            </span>
           </div>
         </div>
       </div>

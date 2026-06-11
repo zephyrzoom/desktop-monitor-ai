@@ -26,6 +26,9 @@ interface Config {
   cleanup: {
     retentionDays: number
   }
+  storage: {
+    backend: 'better-sqlite3' | 'sql.js'
+  }
 }
 
 const defaults: Config = {
@@ -51,6 +54,9 @@ const defaults: Config = {
   },
   cleanup: {
     retentionDays: 30
+  },
+  storage: {
+    backend: 'better-sqlite3'
   }
 }
 
@@ -75,7 +81,8 @@ function loadConfig(): Config {
       configCache = {
         monitoring: { ...defaults.monitoring, ...parsed.monitoring },
         analysis: { ...defaults.analysis, ...parsed.analysis },
-        cleanup: { ...defaults.cleanup, ...parsed.cleanup }
+        cleanup: { ...defaults.cleanup, ...parsed.cleanup },
+        storage: { ...defaults.storage, ...parsed.storage }
       }
     } else {
       configCache = { ...defaults }

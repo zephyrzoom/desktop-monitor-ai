@@ -19,7 +19,7 @@ export function getDailyAnalysisByDate(date: string): DailyAnalysis | null {
       `SELECT * FROM daily_analysis
        WHERE date = ?`
     )
-    .get(date) as DailyAnalysis | undefined
+    .get(date) as unknown as DailyAnalysis | undefined
   return row || null
 }
 
@@ -31,7 +31,7 @@ export function getDailyAnalysisByDateRange(startDate: string, endDate: string):
        WHERE date >= ? AND date <= ?
        ORDER BY date ASC`
     )
-    .all(startDate, endDate) as DailyAnalysis[]
+    .all(startDate, endDate) as unknown as DailyAnalysis[]
 }
 
 export function getAllDailyAnalysis(): DailyAnalysis[] {
@@ -41,5 +41,5 @@ export function getAllDailyAnalysis(): DailyAnalysis[] {
       `SELECT * FROM daily_analysis
        ORDER BY date DESC`
     )
-    .all() as DailyAnalysis[]
+    .all() as unknown as DailyAnalysis[]
 }

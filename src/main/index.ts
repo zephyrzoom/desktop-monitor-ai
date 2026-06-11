@@ -5,7 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { MonitorManager } from './monitors/MonitorManager'
 import { AnalysisScheduler } from './analyzer/AnalysisScheduler'
 import { registerIpcHandlers } from './ipc/handlers'
-import { closeDatabase } from './database/connection'
+import { initializeDatabase, closeDatabase } from './database/connection'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -148,6 +148,7 @@ if (gotTheLock) {
 
     createWindow()
     createTray()
+    await initializeDatabase()
     registerIpcHandlers(monitorManager, analysisScheduler, mainWindow!)
     analysisScheduler.start()
 

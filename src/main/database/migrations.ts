@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3'
+import type { IDatabase } from './interfaces'
 
 const migrations: string[] = [
   `CREATE TABLE IF NOT EXISTS screenshots (
@@ -69,7 +69,7 @@ const migrations: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_task_memory_date ON task_memory(last_active_date)`
 ]
 
-export function runMigrations(db: Database.Database): void {
+export function runMigrations(db: IDatabase): void {
   const currentVersion = getVersion(db)
 
   for (let i = currentVersion; i < migrations.length; i++) {
@@ -79,7 +79,7 @@ export function runMigrations(db: Database.Database): void {
   setVersion(db, migrations.length)
 }
 
-function getVersion(db: Database.Database): number {
+function getVersion(db: IDatabase): number {
   db.exec(`CREATE TABLE IF NOT EXISTS monitor_state (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -93,7 +93,7 @@ function getVersion(db: Database.Database): number {
   return row ? parseInt(row.value, 10) : 0
 }
 
-function setVersion(db: Database.Database, version: number): void {
+function setVersion(db: IDatabase, version: number): void {
   db.prepare(
     `INSERT OR REPLACE INTO monitor_state (key, value, updated_at) VALUES ('schema_version', ?, strftime('%Y-%m-%dT%H:%M:%f', 'now'))`
   ).run(version.toString())

@@ -28,7 +28,7 @@ export function getActiveTaskMemories(days: number): TaskMemory[] {
          AND last_active_date >= date('now', '-' || ? || ' days')
        ORDER BY last_active_date DESC, last_active_time DESC`
     )
-    .all(days) as TaskMemory[]
+    .all(days) as unknown as TaskMemory[]
 }
 
 export function updateTaskMemory(

@@ -26,7 +26,7 @@ export function getScreenshotsByDate(date: string): Screenshot[] {
        WHERE date(timestamp) = ?
        ORDER BY timestamp ASC`
     )
-    .all(date) as Screenshot[]
+    .all(date) as unknown as Screenshot[]
 }
 
 export function getScreenshotsByTimeRange(startTime: string, endTime: string): Screenshot[] {
@@ -37,7 +37,7 @@ export function getScreenshotsByTimeRange(startTime: string, endTime: string): S
        WHERE timestamp >= ? AND timestamp <= ?
        ORDER BY timestamp ASC`
     )
-    .all(startTime, endTime) as Screenshot[]
+    .all(startTime, endTime) as unknown as Screenshot[]
 }
 
 export function getScreenshotCountByDate(date: string): number {
@@ -47,7 +47,7 @@ export function getScreenshotCountByDate(date: string): number {
       `SELECT COUNT(*) as count FROM screenshots
        WHERE date(timestamp) = ?`
     )
-    .get(date) as { count: number }
+    .get(date) as unknown as { count: number }
   return row.count
 }
 
@@ -70,5 +70,5 @@ export function getScreenshotsBeforeDate(date: string): Screenshot[] {
        WHERE date(timestamp) < ?
        ORDER BY timestamp ASC`
     )
-    .all(date) as Screenshot[]
+    .all(date) as unknown as Screenshot[]
 }

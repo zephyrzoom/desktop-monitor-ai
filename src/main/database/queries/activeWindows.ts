@@ -27,7 +27,7 @@ export function getActiveWindowsByDate(date: string): ActiveWindow[] {
        WHERE date(timestamp) = ?
        ORDER BY timestamp ASC`
     )
-    .all(date) as ActiveWindow[]
+    .all(date) as unknown as ActiveWindow[]
 }
 
 export function getActiveWindowsByTimeRange(startTime: string, endTime: string): ActiveWindow[] {
@@ -38,7 +38,7 @@ export function getActiveWindowsByTimeRange(startTime: string, endTime: string):
        WHERE timestamp >= ? AND timestamp <= ?
        ORDER BY timestamp ASC`
     )
-    .all(startTime, endTime) as ActiveWindow[]
+    .all(startTime, endTime) as unknown as ActiveWindow[]
 }
 
 export function getAppUsageSummaryByDate(
@@ -55,7 +55,7 @@ export function getAppUsageSummaryByDate(
        GROUP BY app_name
        ORDER BY total_duration_ms DESC`
     )
-    .all(date) as { app_name: string; total_duration_ms: number; count: number }[]
+    .all(date) as unknown as { app_name: string; total_duration_ms: number; count: number }[]
 }
 
 export function getAppUsageSummaryByTimeRange(
@@ -73,7 +73,7 @@ export function getAppUsageSummaryByTimeRange(
        GROUP BY app_name
        ORDER BY total_duration_ms DESC`
     )
-    .all(startTime, endTime) as { app_name: string; total_duration_ms: number; count: number }[]
+    .all(startTime, endTime) as unknown as { app_name: string; total_duration_ms: number; count: number }[]
 }
 
 export function getWindowSwitchSequence(
@@ -91,7 +91,7 @@ export function getWindowSwitchSequence(
        WHERE timestamp >= ? AND timestamp <= ?
        ORDER BY timestamp ASC`
     )
-    .all(startTime, endTime) as { time: string; app_name: string; window_title: string }[]
+    .all(startTime, endTime) as unknown as { time: string; app_name: string; window_title: string }[]
 }
 
 export function deleteActiveWindowsBeforeDate(date: string): number {
