@@ -8,6 +8,7 @@ import { getActiveWindowsByDate, getAppUsageSummaryByDate } from '../database/qu
 import { getDailyAnalysisByDate, getAllDailyAnalysis } from '../database/queries/dailyAnalysis'
 import { getPeriodicSummary, getPeriodicSummariesByType } from '../database/queries/periodicSummary'
 import { getFullConfig, setConfigValue } from '../config/store'
+import { getActiveBackend } from '../database/connection'
 import { logger } from '../utils/logger'
 import {
   MONITOR_STATUS,
@@ -25,6 +26,7 @@ import {
   SUMMARY_TRIGGER,
   CONFIG_GET,
   CONFIG_SET,
+  STORAGE_ACTIVE_BACKEND,
   SYSTEM_OPEN_PATH,
   SYSTEM_GET_SCREENSHOTS_DIR
 } from '../../shared/constants/ipc-channels'
@@ -143,6 +145,10 @@ export function registerIpcHandlers(
   ipcMain.handle(CONFIG_SET, (_event, key: string, value: unknown) => {
     setConfigValue(key as keyof ReturnType<typeof getFullConfig>, value as never)
     return getFullConfig()
+  })
+
+  ipcMain.handle(STORAGE_ACTIVE_BACKEND, () => {
+    return getActiveBackend()
   })
 
   ipcMain.handle(SYSTEM_OPEN_PATH, (_event, filePath: string) => {

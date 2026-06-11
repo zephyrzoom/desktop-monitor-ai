@@ -31,6 +31,7 @@ interface Config {
 
 export function Settings(): React.JSX.Element {
   const [config, setConfig] = useState<Config | null>(null)
+  const [activeBackend, setActiveBackend] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<'success' | 'error'>('success')
@@ -43,6 +44,8 @@ export function Settings(): React.JSX.Element {
     try {
       const result = await window.electronAPI.getConfig()
       setConfig(result as Config)
+      const backend = await window.electronAPI.getActiveBackend()
+      setActiveBackend(backend as string)
     } catch (err) {
       console.error('Failed to load config:', err)
     }
@@ -438,6 +441,14 @@ export function Settings(): React.JSX.Element {
               <option value="better-sqlite3">SQLite (better-sqlite3)</option>
               <option value="sql.js">SQLite (sql.js 纯JS版)</option>
             </select>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+              当前实际使用: {activeBackend === 'sql.js' ? 'sql.js 纯JS版' : 'better-sqlite3'}
+              {config.storage?.backend !== activeBackend && (
+                <span style={{ color: 'var(--warning, #f59e0b)', marginLeft: '8px' }}>
+                  (better-sqlite3 加载失败，已自动降级)
+                </span>
+              )}
+            </span>
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
               切换数据库类型后需要重启应用才能生效
             </span>

@@ -15,6 +15,7 @@ import {
   SUMMARY_TRIGGER,
   CONFIG_GET,
   CONFIG_SET,
+  STORAGE_ACTIVE_BACKEND,
   SYSTEM_OPEN_PATH,
   SYSTEM_GET_SCREENSHOTS_DIR
 } from '../shared/constants/ipc-channels'
@@ -67,6 +68,7 @@ const electronAPI = {
 
   getConfig: () => ipcRenderer.invoke(CONFIG_GET),
   setConfig: (key: string, value: unknown) => ipcRenderer.invoke(CONFIG_SET, key, value),
+  getActiveBackend: () => ipcRenderer.invoke(STORAGE_ACTIVE_BACKEND),
 
   openPath: (filePath: string) => ipcRenderer.invoke(SYSTEM_OPEN_PATH, filePath),
   getScreenshotsDir: () => ipcRenderer.invoke(SYSTEM_GET_SCREENSHOTS_DIR)

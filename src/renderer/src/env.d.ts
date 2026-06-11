@@ -16,6 +16,7 @@ interface ElectronAPI {
   onAnalysisComplete: (callback: (date: string) => void) => () => void
   getConfig: () => Promise<unknown>
   setConfig: (key: string, value: unknown) => Promise<unknown>
+  getActiveBackend: () => Promise<string>
   openPath: (filePath: string) => Promise<void>
   getScreenshotsDir: () => Promise<string>
 }

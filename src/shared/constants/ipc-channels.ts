@@ -20,6 +20,7 @@ export const SUMMARY_TRIGGER = 'summary:trigger'
 // Config
 export const CONFIG_GET = 'config:get'
 export const CONFIG_SET = 'config:set'
+export const STORAGE_ACTIVE_BACKEND = 'storage:activeBackend'
 
 // System
 export const SYSTEM_OPEN_PATH = 'system:openPath'

@@ -8,6 +8,7 @@ import { getConfig } from '../config/store'
 import type { IDatabase } from './interfaces'
 
 let db: IDatabase | null = null
+let activeBackend: string = 'better-sqlite3'
 
 export async function initializeDatabase(): Promise<void> {
   const config = getConfig()
@@ -19,11 +20,23 @@ export async function initializeDatabase(): Promise<void> {
 
   if (backend === 'sql.js') {
     db = await SqlJsDatabase.create(dbPath)
+    activeBackend = 'sql.js'
   } else {
-    db = new BetterSqlite3Database(dbPath)
+    try {
+      db = new BetterSqlite3Database(dbPath)
+      activeBackend = 'better-sqlite3'
+    } catch (err) {
+      console.warn('[database] better-sqlite3 加载失败，自动降级到 sql.js:', err)
+      db = await SqlJsDatabase.create(dbPath)
+      activeBackend = 'sql.js'
+    }
   }
 
   runMigrations(db!)
+}
+
+export function getActiveBackend(): string {
+  return activeBackend
 }
 
 export function getDatabase(): IDatabase {
