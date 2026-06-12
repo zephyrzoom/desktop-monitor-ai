@@ -3,6 +3,8 @@ import activeWin from 'active-win'
 import type { Monitor, MonitorStatus } from './types'
 import { insertActiveWindow } from '../database/queries/activeWindows'
 
+const SELF_APP_NAME = 'Desktop Monitor'
+
 export interface WindowChangeEvent {
   appName: string
   windowTitle: string
@@ -42,7 +44,7 @@ export class ActiveWindowMonitor extends EventEmitter implements Monitor {
       this.interval = null
     }
 
-    if (this.lastAppName && this.lastChangeTime) {
+    if (this.lastAppName && this.lastAppName !== SELF_APP_NAME && this.lastChangeTime) {
       const durationMs = Date.now() - this.lastChangeTime.getTime()
       if (durationMs > 0) {
         insertActiveWindow(
@@ -75,7 +77,7 @@ export class ActiveWindowMonitor extends EventEmitter implements Monitor {
   }
 
   pause(): void {
-    if (this.lastAppName && this.lastChangeTime) {
+    if (this.lastAppName && this.lastAppName !== SELF_APP_NAME && this.lastChangeTime) {
       const durationMs = Date.now() - this.lastChangeTime.getTime()
       if (durationMs > 0) {
         insertActiveWindow(
@@ -106,6 +108,28 @@ export class ActiveWindowMonitor extends EventEmitter implements Monitor {
 
       const appName = result.owner.name || 'Unknown'
       const windowTitle = result.title || ''
+
+      // 跳过应用自身，不记录使用
+      if (appName === SELF_APP_NAME) {
+        if (this.lastAppName && this.lastAppName !== SELF_APP_NAME && this.lastChangeTime) {
+          const durationMs = Date.now() - this.lastChangeTime.getTime()
+          if (durationMs > 0) {
+            insertActiveWindow(
+              this.lastAppName,
+              this.lastWindowTitle || '',
+              null,
+              null,
+              durationMs,
+              this.currentScreenshotId
+            )
+          }
+        }
+        this.lastAppName = appName
+        this.lastWindowTitle = windowTitle
+        this.lastChangeTime = new Date()
+        this.currentScreenshotId = null
+        return
+      }
 
       if (appName !== this.lastAppName || windowTitle !== this.lastWindowTitle) {
         const now = new Date()
