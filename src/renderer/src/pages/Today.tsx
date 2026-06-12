@@ -11,6 +11,10 @@ interface TodayStats {
   analysis: { date: string; result_json: string } | null
 }
 
+function getTodayStr(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
 export function Today(): React.JSX.Element {
   const [stats, setStats] = useState<TodayStats | null>(null)
   const [monitorStatus, setMonitorStatus] = useState<{
@@ -19,13 +23,12 @@ export function Today(): React.JSX.Element {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [appUsageExpanded, setAppUsageExpanded] = useState(false)
+  const [today, setToday] = useState(getTodayStr)
   const { analyzing, analysisProgress, triggerAnalysis, onAnalysisComplete } = useAnalysis()
 
-  const today = new Date().toISOString().split('T')[0]
-
   useEffect(() => {
-    loadData()
-  }, [])
+    loadData(today)
+  }, [today])
 
   useEffect(() => {
     return window.electronAPI.onMonitorStatusChanged((status) => {
@@ -35,15 +38,23 @@ export function Today(): React.JSX.Element {
 
   useEffect(() => {
     return onAnalysisComplete(() => {
-      loadData()
+      loadData(today)
     })
-  }, [onAnalysisComplete])
+  }, [onAnalysisComplete, today])
 
-  async function loadData(): Promise<void> {
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const current = getTodayStr()
+      setToday((prev) => (prev !== current ? current : prev))
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  async function loadData(date: string): Promise<void> {
     try {
       const [status, todayStats] = await Promise.all([
         window.electronAPI.getMonitorStatus(),
-        window.electronAPI.getTodayStats(today)
+        window.electronAPI.getTodayStats(date)
       ])
       setMonitorStatus(status as { monitors: { name: string; status: string }[]; isPaused: boolean })
       setStats(todayStats as TodayStats)
