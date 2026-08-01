@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react'
 
 interface Config {
+  general: {
+    launchAtStartup: boolean
+  }
   monitoring: {
     enabled: boolean
     screenshotIntervalMs: number
@@ -56,6 +59,7 @@ export function Settings(): React.JSX.Element {
 
     setSaving(true)
     try {
+      await window.electronAPI.setConfig('general', config.general)
       await window.electronAPI.setConfig('analysis', config.analysis)
       await window.electronAPI.setConfig('monitoring', config.monitoring)
       await window.electronAPI.setConfig('cleanup', config.cleanup)
@@ -70,6 +74,14 @@ export function Settings(): React.JSX.Element {
     } finally {
       setSaving(false)
     }
+  }
+
+  function updateGeneral(key: keyof Config['general'], value: boolean): void {
+    if (!config) return
+    setConfig({
+      ...config,
+      general: { ...config.general, [key]: value }
+    })
   }
 
   function updateAnalysis(key: keyof Config['analysis'], value: string | number): void {
@@ -127,6 +139,33 @@ export function Settings(): React.JSX.Element {
           {messageType === 'error' ? '❌ ' : '✓ '}{message}
         </div>
       )}
+
+      <div className="card">
+        <div className="card-title">通用配置</div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '16px'
+          }}
+        >
+          <div>
+            <div>开机自启动</div>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              登录系统后自动启动应用，仅 Windows / macOS 生效
+            </span>
+          </div>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={config.general?.launchAtStartup ?? false}
+              onChange={(e) => updateGeneral('launchAtStartup', e.target.checked)}
+            />
+            <span className="switch-slider" />
+          </label>
+        </div>
+      </div>
 
       <div className="card">
         <div className="card-title">AI 分析配置</div>

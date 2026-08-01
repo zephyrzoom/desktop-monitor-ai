@@ -3,6 +3,9 @@ import path from 'path'
 import fs from 'fs'
 
 interface Config {
+  general: {
+    launchAtStartup: boolean
+  }
   monitoring: {
     enabled: boolean
     screenshotIntervalMs: number
@@ -32,6 +35,9 @@ interface Config {
 }
 
 const defaults: Config = {
+  general: {
+    launchAtStartup: false
+  },
   monitoring: {
     enabled: true,
     screenshotIntervalMs: 10 * 60 * 1000,
@@ -79,6 +85,7 @@ function loadConfig(): Config {
       const data = fs.readFileSync(filePath, 'utf-8')
       const parsed = JSON.parse(data)
       configCache = {
+        general: { ...defaults.general, ...parsed.general },
         monitoring: { ...defaults.monitoring, ...parsed.monitoring },
         analysis: { ...defaults.analysis, ...parsed.analysis },
         cleanup: { ...defaults.cleanup, ...parsed.cleanup },

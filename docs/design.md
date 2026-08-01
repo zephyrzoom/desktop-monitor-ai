@@ -522,6 +522,9 @@ const electronAPI = {
 
 ```json
 {
+  "general": {
+    "launchAtStartup": false
+  },
   "monitoring": {
     "enabled": true,
     "screenshotIntervalMs": 600000,
@@ -548,6 +551,14 @@ const electronAPI = {
 使用 JSON 文件存储在 Electron userData 目录:
 - Windows: `%APPDATA%/desktop-monitor/config.json`
 - macOS: `~/Library/Application Support/desktop-monitor/config.json`
+
+### 9.3 开机自启动
+
+`general.launchAtStartup` 控制应用是否随系统开机自启动，通过 Electron `app.setLoginItemSettings` 实现（Windows/macOS）。
+
+- 在「配置」页切换该开关时，主进程调用 `app.setLoginItemSettings({ openAtLogin })` 同步系统登录项。
+- `config:get` 时该值以系统实际状态为准，与 `app.getLoginItemSettings().openAtLogin` 同步，避免与系统设置里手动修改的状态不一致。
+- Linux 平台不支持登录项设置，开关仅在配置文件中保存、不实际生效。
 
 ---
 

@@ -139,10 +139,25 @@ export function registerIpcHandlers(
   })
 
   ipcMain.handle(CONFIG_GET, () => {
-    return getFullConfig()
+    const config = getFullConfig()
+    // Sync launch-at-startup with the actual OS login item state so the UI
+    // reflects manual changes made in the system settings.
+    if (process.platform !== 'linux') {
+      return {
+        ...config,
+        general: { ...config.general, launchAtStartup: app.getLoginItemSettings().openAtLogin }
+      }
+    }
+    return config
   })
 
   ipcMain.handle(CONFIG_SET, (_event, key: string, value: unknown) => {
+    if (key === 'general') {
+      const launchAtStartup = (value as { launchAtStartup?: unknown } | undefined)?.launchAtStartup
+      if (typeof launchAtStartup === 'boolean' && process.platform !== 'linux') {
+        app.setLoginItemSettings({ openAtLogin: launchAtStartup })
+      }
+    }
     setConfigValue(key as keyof ReturnType<typeof getFullConfig>, value as never)
     return getFullConfig()
   })
