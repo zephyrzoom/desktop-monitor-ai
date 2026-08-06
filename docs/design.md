@@ -100,7 +100,12 @@ MonitorManager.startAll()
     ▼
 AnalysisScheduler.checkAndRun()
     │
-    ▼
+    ├──► 生成当天日报
+    │     DailyAnalyzer.analyze(today)
+    │
+    └──► 补生成前 30 天内缺失日报
+          (按时间从旧到新逐天分析)
+
 DailyAnalyzer.analyze(date)
     │
     ├── 1. 查询当天所有截图
@@ -120,6 +125,17 @@ DailyAnalyzer.analyze(date)
     ├── 9. 更新任务记忆 (新增/更新/归档)
     └── 10. 存入 daily_analysis 表
 ```
+
+#### 定时补生成缺失日报
+
+每日定时触发分析时，除生成当天日报外，还会自动补生成前 30 天内（含今天）缺失的日报：
+
+1. 计算最近 30 天的日期范围
+2. 查询该范围内已有日报的日期、以及存在截图数据的日期
+3. 取差集得到缺失日期（有截图数据但未生成日报）
+4. 按时间从旧到新逐天调用 `DailyAnalyzer.analyze(date)` 补生成
+
+> 无截图数据的日期无法生成日报，跳过不补；补生成失败的日期会在下次定时触发时自动重试。
 
 ---
 
