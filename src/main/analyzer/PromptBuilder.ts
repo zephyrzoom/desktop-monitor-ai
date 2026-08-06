@@ -103,7 +103,7 @@ ${dailyText || '无日报数据'}
 }
 
 注意:
-- highlights 列出本${periodName}最重要的 3-5 个工作亮点
+- highlights 列出本${periodName}的所有工作亮点，覆盖日报中总结的全部工作内容，不要限制数量
 - work_categories 统计各类工作的时间占比，总和应为 100
 - summary 用 2-3 句话概括本${periodName}的整体工作情况`
 }
