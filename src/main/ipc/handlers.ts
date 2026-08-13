@@ -33,6 +33,19 @@ import {
 } from '../../shared/constants/ipc-channels'
 import type { AnalysisProgress } from '../../shared/types/database'
 
+/**
+ * 返回注册开机自启动时应指向的可执行文件路径。
+ * Windows 便携版实际运行在临时解压目录，process.execPath 指向临时 exe，
+ * 退出后临时目录会被清理；直接用它会注册一个下次开机已不存在的路径。
+ * 因此便携版改用 PORTABLE_EXECUTABLE_FILE（真实的便携 exe 路径）。
+ */
+function getAutostartExePath(): string {
+  if (process.platform === 'win32' && process.env.PORTABLE_EXECUTABLE_FILE) {
+    return process.env.PORTABLE_EXECUTABLE_FILE
+  }
+  return process.execPath
+}
+
 export function registerIpcHandlers(
   monitorManager: MonitorManager,
   analysisScheduler: AnalysisScheduler,
@@ -162,7 +175,10 @@ export function registerIpcHandlers(
     if (process.platform !== 'linux') {
       return {
         ...config,
-        general: { ...config.general, launchAtStartup: app.getLoginItemSettings().openAtLogin }
+        general: {
+          ...config.general,
+          launchAtStartup: app.getLoginItemSettings({ path: getAutostartExePath() }).openAtLogin
+        }
       }
     }
     return config
@@ -172,7 +188,7 @@ export function registerIpcHandlers(
     if (key === 'general') {
       const launchAtStartup = (value as { launchAtStartup?: unknown } | undefined)?.launchAtStartup
       if (typeof launchAtStartup === 'boolean' && process.platform !== 'linux') {
-        app.setLoginItemSettings({ openAtLogin: launchAtStartup })
+        app.setLoginItemSettings({ openAtLogin: launchAtStartup, path: getAutostartExePath() })
       }
     }
     setConfigValue(key as keyof ReturnType<typeof getFullConfig>, value as never)

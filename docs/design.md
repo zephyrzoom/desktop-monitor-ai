@@ -588,6 +588,7 @@ const electronAPI = {
 - 在「配置」页切换该开关时，主进程调用 `app.setLoginItemSettings({ openAtLogin })` 同步系统登录项。
 - `config:get` 时该值以系统实际状态为准，与 `app.getLoginItemSettings().openAtLogin` 同步，避免与系统设置里手动修改的状态不一致。
 - Linux 平台不支持登录项设置，开关仅在配置文件中保存、不实际生效。
+- Windows 便携版运行在临时解压目录，`process.execPath` 指向临时 exe，退出后临时目录被清理。因此注册自启动时必须显式传入 `path`，指向真实的便携 exe（`process.env.PORTABLE_EXECUTABLE_FILE`），否则下次开机找不到程序。
 
 ---
 
