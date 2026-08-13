@@ -75,6 +75,15 @@ export function getScreenshotCountByDate(date: string): number {
 
 export function deleteScreenshotsBeforeDate(date: string): number {
   const db = getDatabase()
+
+  // 先解除 active_windows 对即将删除截图的引用，
+  // 否则外键约束（screenshot_id -> screenshots.id）会导致 DELETE 失败
+  db.prepare(
+    `UPDATE active_windows
+     SET screenshot_id = NULL
+     WHERE screenshot_id IN (SELECT id FROM screenshots WHERE date(timestamp) < ?)`
+  ).run(date)
+
   const result = db
     .prepare(
       `DELETE FROM screenshots
