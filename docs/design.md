@@ -137,6 +137,17 @@ DailyAnalyzer.analyze(date)
 
 > 无截图数据的日期无法生成日报，跳过不补；补生成失败的日期会在下次定时触发时自动重试。
 
+#### 手动补偿分析
+
+除定时自动补生成外，「日报查看」页日期选择器右侧提供「补偿分析」按钮，可手动补生成**所有**有截图数据但尚未生成日报的日期（不限 30 天范围）：
+
+1. 查询存在截图数据的全部日期
+2. 查询已有日报的全部日期
+3. 取差集得到缺失日期，按时间从旧到新逐天调用 `DailyAnalyzer.analyze(date)` 补生成
+4. 逐天推送分析进度（`analysis:status`），完成后返回补生成统计（总数/成功数）
+
+> 补偿分析期间按钮置灰，避免重复触发；单个日期补生成失败不影响后续日期，下次可再次点击重试。
+
 ---
 
 ## 4. 数据库设计
@@ -368,6 +379,7 @@ task_memory (独立存储，按 status + last_active_date 查询)
 
 **日报查看 (DailyReport)**
 - 日期选择器
+- 补偿分析按钮（补生成所有缺失日报）
 - 已分析日期快捷按钮
 - 该日工作内容列表
 - 总结摘要
@@ -495,6 +507,7 @@ const base64 = buffer.toString('base64')
 | data:periodicSummary | Renderer → Main | 查询周期汇总 |
 | data:todayStats | Renderer → Main | 今日统计数据 |
 | analysis:trigger | Renderer → Main | 触发分析 |
+| analysis:backfill | Renderer → Main | 触发补偿分析（补生成所有缺失日报） |
 | analysis:status | Main → Renderer | 分析进度推送 |
 | config:get | Renderer → Main | 获取配置 |
 | config:set | Renderer → Main | 设置配置 |

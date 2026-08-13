@@ -21,6 +21,7 @@ import {
   DATA_PERIODIC_SUMMARY,
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
+  ANALYSIS_BACKFILL,
   ANALYSIS_STATUS,
   ANALYSIS_RESULT,
   SUMMARY_TRIGGER,
@@ -113,6 +114,22 @@ export function registerIpcHandlers(
     } catch (err) {
       logger.error('Analysis trigger failed:', err)
       return { status: 'failed', date }
+    }
+  })
+
+  ipcMain.handle(ANALYSIS_BACKFILL, async () => {
+    const onProgress = (progress: AnalysisProgress): void => {
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(ANALYSIS_STATUS, progress)
+      }
+    }
+
+    try {
+      const { total, succeeded } = await analysisScheduler.backfillAllMissingAnalyses(onProgress)
+      return { status: 'completed', total, succeeded }
+    } catch (err) {
+      logger.error('Backfill analysis failed:', err)
+      return { status: 'failed', total: 0, succeeded: 0 }
     }
   })
 

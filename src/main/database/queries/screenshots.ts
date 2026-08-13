@@ -51,6 +51,17 @@ export function getDatesWithScreenshotsInRange(startDate: string, endDate: strin
   return rows.map((r) => r.d)
 }
 
+export function getAllDatesWithScreenshots(): string[] {
+  const db = getDatabase()
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT date(timestamp) as d FROM screenshots
+       ORDER BY d ASC`
+    )
+    .all() as unknown as { d: string }[]
+  return rows.map((r) => r.d)
+}
+
 export function getScreenshotCountByDate(date: string): number {
   const db = getDatabase()
   const row = db

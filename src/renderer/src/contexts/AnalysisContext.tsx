@@ -6,11 +6,18 @@ interface AnalysisContextValue {
   analyzing: boolean
   analysisProgress: AnalysisProgress | null
   analyzingDate: string | null
+  // Backfill state
+  backfilling: boolean
   // Periodic summary state
   generating: boolean
   generatingLabel: string | null
   // Actions
   triggerAnalysis: (date: string) => Promise<void>
+  triggerBackfillAnalysis: () => Promise<{
+    status: string
+    total: number
+    succeeded: number
+  } | null>
   triggerPeriodicSummary: (periodLabel: string) => Promise<void>
   // Completion callback registration
   onAnalysisComplete: (callback: () => void) => () => void
@@ -22,6 +29,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
   const [analyzingDate, setAnalyzingDate] = useState<string | null>(null)
+  const [backfilling, setBackfilling] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generatingLabel, setGeneratingLabel] = useState<string | null>(null)
 
@@ -52,31 +60,49 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     return unsubscribe
   }, [notifyComplete])
 
-  const triggerAnalysis = useCallback(async (date: string) => {
-    setAnalyzing(true)
-    setAnalysisProgress(null)
-    setAnalyzingDate(date)
-    try {
-      await window.electronAPI.triggerAnalysis(date)
-    } finally {
-      setAnalyzing(false)
+  const triggerAnalysis = useCallback(
+    async (date: string) => {
+      setAnalyzing(true)
       setAnalysisProgress(null)
-      setAnalyzingDate(null)
+      setAnalyzingDate(date)
+      try {
+        await window.electronAPI.triggerAnalysis(date)
+      } finally {
+        setAnalyzing(false)
+        setAnalysisProgress(null)
+        setAnalyzingDate(null)
+        notifyComplete()
+      }
+    },
+    [notifyComplete]
+  )
+
+  const triggerBackfillAnalysis = useCallback(async () => {
+    setBackfilling(true)
+    setAnalysisProgress(null)
+    try {
+      return await window.electronAPI.triggerBackfillAnalysis()
+    } finally {
+      setBackfilling(false)
+      setAnalysisProgress(null)
       notifyComplete()
     }
   }, [notifyComplete])
 
-  const triggerPeriodicSummary = useCallback(async (periodLabel: string) => {
-    setGenerating(true)
-    setGeneratingLabel(periodLabel)
-    try {
-      await window.electronAPI.triggerPeriodicSummary(periodLabel)
-    } finally {
-      setGenerating(false)
-      setGeneratingLabel(null)
-      notifyComplete()
-    }
-  }, [notifyComplete])
+  const triggerPeriodicSummary = useCallback(
+    async (periodLabel: string) => {
+      setGenerating(true)
+      setGeneratingLabel(periodLabel)
+      try {
+        await window.electronAPI.triggerPeriodicSummary(periodLabel)
+      } finally {
+        setGenerating(false)
+        setGeneratingLabel(null)
+        notifyComplete()
+      }
+    },
+    [notifyComplete]
+  )
 
   return (
     <AnalysisContext.Provider
@@ -84,9 +110,11 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
         analyzing,
         analysisProgress,
         analyzingDate,
+        backfilling,
         generating,
         generatingLabel,
         triggerAnalysis,
+        triggerBackfillAnalysis,
         triggerPeriodicSummary,
         onAnalysisComplete
       }}

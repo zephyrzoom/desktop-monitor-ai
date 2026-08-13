@@ -9,7 +9,17 @@ export function DailyReport(): React.JSX.Element {
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null)
   const [allAnalyses, setAllAnalyses] = useState<DailyAnalysis[]>([])
   const [loading, setLoading] = useState(false)
-  const { analyzing, analysisProgress, triggerAnalysis, onAnalysisComplete } = useAnalysis()
+  const [backfillResult, setBackfillResult] = useState<{ total: number; succeeded: number } | null>(
+    null
+  )
+  const {
+    analyzing,
+    analysisProgress,
+    backfilling,
+    triggerAnalysis,
+    triggerBackfillAnalysis,
+    onAnalysisComplete
+  } = useAnalysis()
 
   useEffect(() => {
     loadAllAnalyses()
@@ -51,6 +61,15 @@ export function DailyReport(): React.JSX.Element {
     triggerAnalysis(selectedDate)
   }
 
+  async function handleBackfill(): Promise<void> {
+    setBackfillResult(null)
+    const result = await triggerBackfillAnalysis()
+    if (result) {
+      setBackfillResult({ total: result.total, succeeded: result.succeeded })
+    }
+    loadAllAnalyses()
+  }
+
   let analysisResult: DailyAnalysisResult | null = null
   if (analysis) {
     try {
@@ -74,7 +93,57 @@ export function DailyReport(): React.JSX.Element {
         <h2>日报查看</h2>
       </div>
 
-      <DatePicker value={selectedDate} onChange={setSelectedDate} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <DatePicker value={selectedDate} onChange={setSelectedDate} />
+        <button
+          className="button button-secondary"
+          onClick={handleBackfill}
+          disabled={backfilling || analyzing}
+        >
+          {backfilling ? '补偿分析中...' : '补偿分析'}
+        </button>
+      </div>
+
+      {backfilling && (
+        <div className="analysis-progress" style={{ marginTop: '16px' }}>
+          <div className="analysis-progress-header">
+            <div className="analysis-spinner"></div>
+            <span>正在补偿分析...</span>
+          </div>
+          {analysisProgress && (
+            <div className="analysis-progress-detail">
+              <span>{analysisProgress.step}</span>
+              {analysisProgress.total > 0 && (
+                <>
+                  <div className="analysis-progress-bar-wrapper">
+                    <div
+                      className="analysis-progress-bar"
+                      style={{
+                        width: `${(analysisProgress.current / analysisProgress.total) * 100}%`
+                      }}
+                    />
+                  </div>
+                  <span className="analysis-progress-count">
+                    {analysisProgress.current} / {analysisProgress.total}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {backfillResult && !backfilling && (
+        <div className="summary-box" style={{ marginTop: '16px' }}>
+          {backfillResult.total === 0
+            ? '没有需要补偿分析的日期'
+            : `补偿分析完成：共 ${backfillResult.total} 天，成功 ${backfillResult.succeeded} 天${
+                backfillResult.succeeded < backfillResult.total
+                  ? `，失败 ${backfillResult.total - backfillResult.succeeded} 天`
+                  : ''
+              }`}
+        </div>
+      )}
 
       {allAnalyses.length > 0 && (
         <div className="card" style={{ marginBottom: '24px' }}>
@@ -107,7 +176,11 @@ export function DailyReport(): React.JSX.Element {
           <h3 style={{ marginBottom: '16px' }}>工作内容</h3>
           <WorkItemList workItems={analysisResult.work_items} />
           <div style={{ marginTop: '24px' }}>
-            <button className="button button-secondary" onClick={handleAnalyze} disabled={analyzing}>
+            <button
+              className="button button-secondary"
+              onClick={handleAnalyze}
+              disabled={analyzing}
+            >
               {analyzing ? '分析中...' : '重新分析'}
             </button>
           </div>
@@ -136,7 +209,9 @@ export function DailyReport(): React.JSX.Element {
                 <div className="analysis-progress-bar-wrapper">
                   <div
                     className="analysis-progress-bar"
-                    style={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}
+                    style={{
+                      width: `${(analysisProgress.current / analysisProgress.total) * 100}%`
+                    }}
                   />
                 </div>
               )}

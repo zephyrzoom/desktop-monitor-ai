@@ -13,6 +13,7 @@ export const DATA_TODAY_STATS = 'data:todayStats'
 
 // Analysis
 export const ANALYSIS_TRIGGER = 'analysis:trigger'
+export const ANALYSIS_BACKFILL = 'analysis:backfill'
 export const ANALYSIS_STATUS = 'analysis:status'
 export const ANALYSIS_RESULT = 'analysis:result'
 export const SUMMARY_TRIGGER = 'summary:trigger'

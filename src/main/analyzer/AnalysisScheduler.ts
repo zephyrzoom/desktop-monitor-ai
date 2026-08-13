@@ -1,8 +1,11 @@
 import { DailyAnalyzer } from './DailyAnalyzer'
 import { SummaryGenerator } from './SummaryGenerator'
 import { getConfigValue } from '../config/store'
-import { getDailyAnalysisByDateRange } from '../database/queries/dailyAnalysis'
-import { getDatesWithScreenshotsInRange } from '../database/queries/screenshots'
+import { getDailyAnalysisByDateRange, getAllDailyAnalysis } from '../database/queries/dailyAnalysis'
+import {
+  getDatesWithScreenshotsInRange,
+  getAllDatesWithScreenshots
+} from '../database/queries/screenshots'
 import { logger } from '../utils/logger'
 import type { AnalysisProgress } from '../../shared/types/database'
 
@@ -39,7 +42,10 @@ export class AnalysisScheduler {
     this.initClients()
   }
 
-  async triggerDailyAnalysis(date?: string, onProgress?: (progress: AnalysisProgress) => void): Promise<boolean> {
+  async triggerDailyAnalysis(
+    date?: string,
+    onProgress?: (progress: AnalysisProgress) => void
+  ): Promise<boolean> {
     if (!this.dailyAnalyzer) {
       this.initClients()
       if (!this.dailyAnalyzer) {
@@ -64,6 +70,51 @@ export class AnalysisScheduler {
     }
   }
 
+  /**
+   * 手动补偿分析：补生成所有有截图数据但尚未生成日报的日期（不限 30 天范围）。
+   * 按时间从旧到新逐天分析，返回补生成统计。单个日期失败不影响后续日期。
+   */
+  async backfillAllMissingAnalyses(
+    onProgress?: (progress: AnalysisProgress) => void
+  ): Promise<{ total: number; succeeded: number }> {
+    if (!this.dailyAnalyzer) {
+      this.initClients()
+      if (!this.dailyAnalyzer) {
+        logger.warn('[AnalysisScheduler] 无法初始化 DailyAnalyzer，可能缺少 API Key')
+        return { total: 0, succeeded: 0 }
+      }
+    }
+
+    const datesWithData = getAllDatesWithScreenshots()
+    const existingDates = new Set(getAllDailyAnalysis().map((d) => d.date))
+    const missingDates = datesWithData.filter((d) => !existingDates.has(d)).sort()
+
+    if (missingDates.length === 0) {
+      logger.info('[AnalysisScheduler] 没有需要补偿分析的日期')
+      onProgress?.({ step: '没有需要补偿分析的日期', current: 0, total: 0 })
+      return { total: 0, succeeded: 0 }
+    }
+
+    logger.info(
+      `[AnalysisScheduler] 检测到 ${missingDates.length} 天缺失日报，开始补偿分析: ${missingDates.join(', ')}`
+    )
+
+    let succeeded = 0
+    for (let i = 0; i < missingDates.length; i++) {
+      const date = missingDates[i]
+      onProgress?.({ step: `正在补偿分析 ${date}`, current: i + 1, total: missingDates.length })
+      const ok = await this.triggerDailyAnalysis(date)
+      if (ok) {
+        succeeded++
+        this.analysisCompleteCallback?.(date)
+      }
+    }
+
+    onProgress?.({ step: '补偿分析完成', current: missingDates.length, total: missingDates.length })
+    logger.info(`[AnalysisScheduler] 补偿分析完成: ${succeeded}/${missingDates.length} 成功`)
+    return { total: missingDates.length, succeeded }
+  }
+
   async triggerPeriodicSummary(
     periodType: 'quarter' | 'year',
     year: number,
@@ -76,7 +127,9 @@ export class AnalysisScheduler {
 
     try {
       this.isRunning = true
-      logger.info(`[AnalysisScheduler] 触发周期总结: ${periodType} ${year}${quarter ? ` Q${quarter}` : ''}`)
+      logger.info(
+        `[AnalysisScheduler] 触发周期总结: ${periodType} ${year}${quarter ? ` Q${quarter}` : ''}`
+      )
       let result
 
       if (periodType === 'quarter' && quarter) {
@@ -108,7 +161,12 @@ export class AnalysisScheduler {
         config.taskMemoryDays,
         config.maxRetries
       )
-      this.summaryGenerator = new SummaryGenerator(config.apiKey, config.baseUrl, config.model, config.maxRetries)
+      this.summaryGenerator = new SummaryGenerator(
+        config.apiKey,
+        config.baseUrl,
+        config.model,
+        config.maxRetries
+      )
     }
   }
 
@@ -138,7 +196,9 @@ export class AnalysisScheduler {
       const startDate = this.addDays(today, -(BACKFILL_DAYS - 1))
       const allDates = this.getDateRange(startDate, today)
 
-      const existingDates = new Set(getDailyAnalysisByDateRange(startDate, today).map((d) => d.date))
+      const existingDates = new Set(
+        getDailyAnalysisByDateRange(startDate, today).map((d) => d.date)
+      )
       const datesWithData = new Set(getDatesWithScreenshotsInRange(startDate, today))
 
       const missingDates = allDates.filter((d) => !existingDates.has(d) && datesWithData.has(d))
@@ -148,7 +208,9 @@ export class AnalysisScheduler {
         return
       }
 
-      logger.info(`[AnalysisScheduler] 检测到 ${missingDates.length} 天缺失日报，开始补生成: ${missingDates.join(', ')}`)
+      logger.info(
+        `[AnalysisScheduler] 检测到 ${missingDates.length} 天缺失日报，开始补生成: ${missingDates.join(', ')}`
+      )
 
       for (const date of missingDates) {
         const ok = await this.triggerDailyAnalysis(date)

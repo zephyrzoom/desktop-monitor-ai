@@ -10,6 +10,7 @@ import {
   DATA_PERIODIC_SUMMARY,
   DATA_TODAY_STATS,
   ANALYSIS_TRIGGER,
+  ANALYSIS_BACKFILL,
   ANALYSIS_STATUS,
   ANALYSIS_RESULT,
   SUMMARY_TRIGGER,
@@ -34,6 +35,7 @@ const electronAPI = {
   getTodayStats: (date: string) => ipcRenderer.invoke(DATA_TODAY_STATS, date),
 
   triggerAnalysis: (date: string) => ipcRenderer.invoke(ANALYSIS_TRIGGER, date),
+  triggerBackfillAnalysis: () => ipcRenderer.invoke(ANALYSIS_BACKFILL),
   triggerPeriodicSummary: (periodLabel: string) => ipcRenderer.invoke(SUMMARY_TRIGGER, periodLabel),
 
   onAnalysisProgress: (callback: (progress: AnalysisProgress) => void) => {
@@ -46,8 +48,13 @@ const electronAPI = {
     }
   },
 
-  onMonitorStatusChanged: (callback: (status: { monitors: { name: string; status: string }[]; isPaused: boolean }) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, status: { monitors: { name: string; status: string }[]; isPaused: boolean }) => {
+  onMonitorStatusChanged: (
+    callback: (status: { monitors: { name: string; status: string }[]; isPaused: boolean }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      status: { monitors: { name: string; status: string }[]; isPaused: boolean }
+    ) => {
       callback(status)
     }
     ipcRenderer.on(MONITOR_STATUS_CHANGED, listener)
