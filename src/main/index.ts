@@ -6,6 +6,25 @@ import { MonitorManager } from './monitors/MonitorManager'
 import { AnalysisScheduler } from './analyzer/AnalysisScheduler'
 import { registerIpcHandlers } from './ipc/handlers'
 import { initializeDatabase, closeDatabase } from './database/connection'
+import { logger } from './utils/logger'
+
+// 全局异常兜底：主进程任何未捕获异常 / 未处理的 Promise 拒绝都应记录到日志，
+// 而不是触发 Electron 默认的原生报错弹窗并退出应用。作为后台监控应用，尽可能保持运行。
+process.on('uncaughtException', (err) => {
+  try {
+    logger.error('Uncaught exception:', err)
+  } catch {
+    console.error('Uncaught exception:', err)
+  }
+})
+
+process.on('unhandledRejection', (reason) => {
+  try {
+    logger.error('Unhandled rejection:', reason)
+  } catch {
+    console.error('Unhandled rejection:', reason)
+  }
+})
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
