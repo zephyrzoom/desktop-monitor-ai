@@ -93,7 +93,7 @@ export function DailyReport(): React.JSX.Element {
         <h2>日报查看</h2>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <DatePicker value={selectedDate} onChange={setSelectedDate} />
         <button
           className="button button-secondary"
