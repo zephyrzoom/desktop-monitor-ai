@@ -192,6 +192,11 @@ export function registerIpcHandlers(
       }
     }
     setConfigValue(key as keyof ReturnType<typeof getFullConfig>, value as never)
+    // AI 配置变更后重建客户端，让新的 apiKey/baseUrl/model 立即生效
+    // （自定义请求头本身在每次请求时实时读取，无需重建）
+    if (key === 'analysis') {
+      analysisScheduler.updateConfig()
+    }
     return getFullConfig()
   })
 

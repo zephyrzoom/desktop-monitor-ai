@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { getConfigValue } from '../config/store'
 import { getDailyAnalysisByDateRange } from '../database/queries/dailyAnalysis'
 import { insertOrUpdatePeriodicSummary } from '../database/queries/periodicSummary'
 import { buildPeriodicSummaryPrompt, buildYearlySummaryPrompt } from './PromptBuilder'
@@ -12,10 +13,17 @@ export class SummaryGenerator {
   private model: string
   private maxRetries: number
 
-  constructor(apiKey: string, baseUrl: string, model?: string, maxRetries = 3, customHeaders = '') {
-    this.openai = new OpenAI({ apiKey, baseURL: baseUrl, defaultHeaders: parseCustomHeaders(customHeaders) })
+  constructor(apiKey: string, baseUrl: string, model?: string, maxRetries = 3) {
+    this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
     this.model = model || 'gpt-4o'
     this.maxRetries = maxRetries
+  }
+
+  /**
+   * 每次请求实时读取自定义请求头配置，保存配置后无需重启即可生效
+   */
+  private getLiveRequestOptions(): { headers: Record<string, string> } {
+    return { headers: parseCustomHeaders(getConfigValue('analysis').customHeaders) }
   }
 
   async generateQuarterly(year: number, quarter: number): Promise<PeriodicSummaryResult | null> {
@@ -58,7 +66,7 @@ export class SummaryGenerator {
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 4000
-        }),
+        }, this.getLiveRequestOptions()),
         {
           maxRetries: this.maxRetries,
           label: 'generateYearly',
@@ -119,7 +127,7 @@ export class SummaryGenerator {
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 2000
-        }),
+        }, this.getLiveRequestOptions()),
         {
           maxRetries: this.maxRetries,
           label: 'generateQuarterly',

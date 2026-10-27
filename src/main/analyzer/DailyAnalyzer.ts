@@ -29,15 +29,21 @@ export class DailyAnalyzer {
     maxScreenshotsPerBatch = 15,
     gapThresholdMinutes = 15,
     taskMemoryDays = 3,
-    maxRetries = 3,
-    customHeaders = ''
+    maxRetries = 3
   ) {
-    this.openai = new OpenAI({ apiKey, baseURL: baseUrl, defaultHeaders: parseCustomHeaders(customHeaders) })
+    this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
     this.model = model || 'gpt-4o'
     this.maxScreenshotsPerBatch = maxScreenshotsPerBatch
     this.gapThresholdMinutes = gapThresholdMinutes
     this.taskMemoryDays = taskMemoryDays
     this.maxRetries = maxRetries
+  }
+
+  /**
+   * 每次请求实时读取自定义请求头配置，保存配置后无需重启即可生效
+   */
+  private getLiveRequestOptions(): { headers: Record<string, string> } {
+    return { headers: parseCustomHeaders(getConfigValue('analysis').customHeaders) }
   }
 
   async analyze(date: string, onProgress?: (progress: AnalysisProgress) => void): Promise<DailyAnalysisResult | null> {
@@ -214,7 +220,7 @@ export class DailyAnalyzer {
           model: this.model,
           messages: [{ role: 'user', content }],
           max_tokens: 2000
-        }),
+        }, this.getLiveRequestOptions()),
         {
           maxRetries: this.maxRetries,
           label: 'analyzeBatch',
@@ -246,7 +252,7 @@ export class DailyAnalyzer {
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 500
-        }),
+        }, this.getLiveRequestOptions()),
         {
           maxRetries: this.maxRetries,
           label: 'generateOverallSummary',
@@ -280,7 +286,7 @@ export class DailyAnalyzer {
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 2000
-        }),
+        }, this.getLiveRequestOptions()),
         {
           maxRetries: this.maxRetries,
           label: 'consolidateWorkItems',
@@ -327,7 +333,7 @@ export class DailyAnalyzer {
           model: this.model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 1500
-        }),
+        }, this.getLiveRequestOptions()),
         {
           maxRetries: this.maxRetries,
           label: 'updateTaskMemories',
