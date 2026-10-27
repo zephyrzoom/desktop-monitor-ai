@@ -18,6 +18,7 @@ interface Config {
     apiKey: string
     baseUrl: string
     model: string
+    customHeaders: string
     scheduleTime: string
     maxScreenshotsPerBatch: number
     gapThresholdMinutes: number
@@ -217,6 +218,28 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '4px' }}>自定义请求头</label>
+            <textarea
+              value={config.analysis.customHeaders ?? ''}
+              placeholder={'X-Custom-Header: value\nX-Api-Version: 2024-01-01'}
+              onChange={(e) => updateAnalysis('customHeaders', e.target.value)}
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)',
+                fontFamily: 'monospace',
+                resize: 'vertical'
+              }}
+            />
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+              部分中转/企业 API 需要额外的报文头。每行一条，格式为 Key: Value，以 # 开头的行忽略
+            </span>
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '4px' }}>每日分析时间</label>

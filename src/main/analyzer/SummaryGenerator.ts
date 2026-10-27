@@ -4,6 +4,7 @@ import { insertOrUpdatePeriodicSummary } from '../database/queries/periodicSumma
 import { buildPeriodicSummaryPrompt, buildYearlySummaryPrompt } from './PromptBuilder'
 import { logger } from '../utils/logger'
 import { withRetry } from '../utils/retry'
+import { parseCustomHeaders } from '../utils/llm-headers'
 import type { PeriodicSummaryResult, YearlySummaryResult } from '../../shared/types/database'
 
 export class SummaryGenerator {
@@ -11,8 +12,8 @@ export class SummaryGenerator {
   private model: string
   private maxRetries: number
 
-  constructor(apiKey: string, baseUrl: string, model?: string, maxRetries = 3) {
-    this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
+  constructor(apiKey: string, baseUrl: string, model?: string, maxRetries = 3, customHeaders = '') {
+    this.openai = new OpenAI({ apiKey, baseURL: baseUrl, defaultHeaders: parseCustomHeaders(customHeaders) })
     this.model = model || 'gpt-4o'
     this.maxRetries = maxRetries
   }

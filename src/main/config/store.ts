@@ -20,6 +20,7 @@ interface Config {
     apiKey: string
     baseUrl: string
     model: string
+    customHeaders: string
     scheduleTime: string
     maxScreenshotsPerBatch: number
     gapThresholdMinutes: number
@@ -52,6 +53,7 @@ const defaults: Config = {
     apiKey: '',
     baseUrl: 'https://api.openai.com/v1',
     model: 'gpt-4o',
+    customHeaders: '',
     scheduleTime: '23:00',
     maxScreenshotsPerBatch: 15,
     gapThresholdMinutes: 15,

@@ -159,13 +159,15 @@ export class AnalysisScheduler {
         config.maxScreenshotsPerBatch,
         config.gapThresholdMinutes,
         config.taskMemoryDays,
-        config.maxRetries
+        config.maxRetries,
+        config.customHeaders
       )
       this.summaryGenerator = new SummaryGenerator(
         config.apiKey,
         config.baseUrl,
         config.model,
-        config.maxRetries
+        config.maxRetries,
+        config.customHeaders
       )
     }
   }

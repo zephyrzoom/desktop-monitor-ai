@@ -11,6 +11,7 @@ import { buildDailyAnalysisPrompt, buildConsolidationPrompt, buildSummaryPrompt,
 import { getConfigValue } from '../config/store'
 import { logger } from '../utils/logger'
 import { withRetry } from '../utils/retry'
+import { parseCustomHeaders } from '../utils/llm-headers'
 import type { Screenshot, DailyAnalysisResult, AnalysisProgress, WorkItem, TaskMemory } from '../../shared/types/database'
 
 export class DailyAnalyzer {
@@ -28,9 +29,10 @@ export class DailyAnalyzer {
     maxScreenshotsPerBatch = 15,
     gapThresholdMinutes = 15,
     taskMemoryDays = 3,
-    maxRetries = 3
+    maxRetries = 3,
+    customHeaders = ''
   ) {
-    this.openai = new OpenAI({ apiKey, baseURL: baseUrl })
+    this.openai = new OpenAI({ apiKey, baseURL: baseUrl, defaultHeaders: parseCustomHeaders(customHeaders) })
     this.model = model || 'gpt-4o'
     this.maxScreenshotsPerBatch = maxScreenshotsPerBatch
     this.gapThresholdMinutes = gapThresholdMinutes
