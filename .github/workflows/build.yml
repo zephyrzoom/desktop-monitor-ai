@@ -111,7 +111,21 @@ jobs:
         run: npm ci
 
       - name: Build deb
-        run: npx tauri build --bundles deb
+        run: |
+          set -o pipefail
+          if npx tauri build --bundles deb 2>&1 | tee build.log; then
+            exit 0
+          fi
+          # 构建失败时把关键错误行输出为 annotation，便于在 Actions 页面/API 直接看到
+          {
+            grep -n -m 5 -E "error\[E[0-9]+\]|^error:|Error:|No package|cannot find|not found|Package .* not found" build.log || true
+            echo '--- tail ---'
+            tail -n 12 build.log
+          } | while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            echo "::error title=linux-build::$(printf '%s' "$line" | cut -c1-400)"
+          done
+          exit 1
 
       - name: Collect artifacts
         run: |
