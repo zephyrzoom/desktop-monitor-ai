@@ -2,7 +2,8 @@ name: Build
 
 on:
   push:
-    branches: [main, master]
+    # tauri 为 Electron → Tauri 迁移分支，合并进主干后可移除
+    branches: [main, master, tauri]
     tags: ['v*']
   pull_request:
     branches: [main, master]
