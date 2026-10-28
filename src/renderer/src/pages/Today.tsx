@@ -31,7 +31,7 @@ export function Today(): React.JSX.Element {
   }, [today])
 
   useEffect(() => {
-    return window.electronAPI.onMonitorStatusChanged((status) => {
+    return window.api.onMonitorStatusChanged((status) => {
       setMonitorStatus(status)
     })
   }, [])
@@ -53,10 +53,12 @@ export function Today(): React.JSX.Element {
   async function loadData(date: string): Promise<void> {
     try {
       const [status, todayStats] = await Promise.all([
-        window.electronAPI.getMonitorStatus(),
-        window.electronAPI.getTodayStats(date)
+        window.api.getMonitorStatus(),
+        window.api.getTodayStats(date)
       ])
-      setMonitorStatus(status as { monitors: { name: string; status: string }[]; isPaused: boolean })
+      setMonitorStatus(
+        status as { monitors: { name: string; status: string }[]; isPaused: boolean }
+      )
       setStats(todayStats as TodayStats)
     } catch (err) {
       console.error('Failed to load data:', err)
@@ -66,12 +68,12 @@ export function Today(): React.JSX.Element {
   }
 
   async function handleStart(): Promise<void> {
-    const status = await window.electronAPI.startMonitor()
+    const status = await window.api.startMonitor()
     setMonitorStatus(status)
   }
 
   async function handleStop(): Promise<void> {
-    const status = await window.electronAPI.stopMonitor()
+    const status = await window.api.stopMonitor()
     setMonitorStatus(status)
   }
 
@@ -163,7 +165,9 @@ export function Today(): React.JSX.Element {
                 <div className="analysis-progress-bar-wrapper">
                   <div
                     className="analysis-progress-bar"
-                    style={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}
+                    style={{
+                      width: `${(analysisProgress.current / analysisProgress.total) * 100}%`
+                    }}
                   />
                 </div>
               )}

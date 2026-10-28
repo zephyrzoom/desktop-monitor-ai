@@ -1,13 +1,9 @@
 <!doctype html>
-<html>
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <title>Desktop Monitor</title>
-    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
-    />
+    <!-- CSP 由 src-tauri/tauri.conf.json 的 app.security.csp 统一下发 -->
   </head>
 
   <body>

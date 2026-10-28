@@ -1,5 +1,9 @@
 # Desktop Monitor AI - 设计文档
 
+> **注意**：本文档描述的仍是最初的 Electron 实现，用于保留产品设计思路（采集策略、Prompt 设计、
+> 数据模型等）。当前代码已迁移到 Tauri 2 + Rust，框架层的差异、能力映射与行为变化见
+> [docs/tauri-migration.md](./tauri-migration.md)。
+
 ## 1. 项目概述
 
 Desktop Monitor AI 是一个基于 Electron 的桌面监控系统，通过采集屏幕截图和活动窗口数据，利用 AI 自动分析并生成用户每日工作内容总结。

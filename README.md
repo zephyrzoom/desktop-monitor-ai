@@ -1,6 +1,6 @@
 # Desktop Monitor AI
 
-基于 Electron 的桌面监控系统，通过自动采集屏幕截图和活动窗口数据，利用 AI 智能分析并生成每日工作内容总结。
+基于 Tauri 的桌面监控系统，通过自动采集屏幕截图和活动窗口数据，利用 AI 智能分析并生成每日工作内容总结。
 
 ## 核心功能
 
@@ -8,7 +8,7 @@
 
 - **屏幕截图**：支持窗口切换自动截图和定时截图（默认 10 分钟），以 JPEG 格式压缩存储
 - **活动窗口追踪**：每秒轮询前台窗口，记录应用名称、窗口标题和使用时长
-- **智能暂停**：锁屏/熄屏/空闲时自动暂停采集，解锁/操作后自动恢复
+- **智能暂停**：空闲无操作时自动暂停采集，恢复操作后自动继续；系统休眠/唤醒同样会结束当前片段
 - **监控时段**：可配置监控的时间范围，默认全天
 
 ### AI 智能分析
@@ -34,62 +34,76 @@
 
 | 组件 | 技术 |
 |------|------|
-| 桌面框架 | Electron 39 |
+| 桌面框架 | Tauri 2（Rust） |
 | 前端 | React 19 + TypeScript |
-| 构建工具 | electron-vite |
-| 数据库 | SQLite (better-sqlite3, WAL 模式) |
-| AI 接口 | OpenAI 兼容 API（支持自定义 Base URL） |
-| 活动窗口检测 | active-win |
-| 图片处理 | Electron nativeImage |
+| 构建工具 | Vite 7 + Tauri CLI |
+| 数据库 | SQLite（rusqlite，bundled + WAL 模式） |
+| AI 接口 | OpenAI 兼容 API（reqwest，支持自定义 Base URL / 请求头） |
+| 活动窗口检测 | active-win-pos-rs |
+| 屏幕截图 | xcap + image |
+| 空闲检测 | user-idle |
 
 ## 项目结构
 
 ```
-src/
-├── main/                     # Electron 主进程
+src-tauri/                    # Rust 后端
+├── src/
+│   ├── main.rs               # 程序入口
+│   ├── lib.rs                # 应用装配（托盘、单实例、窗口事件）
+│   ├── runtime.rs            # 运行时共享状态（配置 / 数据库 / 事件）
+│   ├── paths.rs              # 数据目录解析（兼容旧 Electron 目录）
+│   ├── config.rs             # 配置读写
+│   ├── logger.rs             # 文件日志（保留 7 天）
+│   ├── commands.rs           # 前端可调用的命令（IPC）
+│   ├── tray.rs               # 托盘图标与菜单
+│   ├── db/                   # SQLite 连接、迁移与查询
 │   ├── monitors/             # 数据采集
-│   │   ├── ActiveWindowMonitor.ts   # 活动窗口监控
-│   │   ├── ScreenshotMonitor.ts     # 截图采集
-│   │   ├── IdleDetector.ts          # 空闲检测
-│   │   └── MonitorManager.ts        # 监控调度
-│   ├── analyzer/             # AI 分析
-│   │   ├── DailyAnalyzer.ts         # 每日分析（含任务记忆）
-│   │   ├── SummaryGenerator.ts      # 周期汇总
-│   │   ├── PromptBuilder.ts         # Prompt 模板
-│   │   └── AnalysisScheduler.ts     # 分析调度
-│   ├── database/             # 数据层
-│   │   ├── connection.ts            # SQLite 连接
-│   │   ├── migrations.ts            # 表结构迁移
-│   │   └── queries/                 # CRUD 查询
-│   ├── config/               # 配置管理
-│   └── ipc/                  # IPC 通信
-├── renderer/                 # React 渲染进程
+│   │   ├── mod.rs            # 活动窗口轮询 / 空闲 / 时段调度
+│   │   └── screenshot.rs     # 截图采集与清理
+│   └── analyzer/             # AI 分析
+│       ├── mod.rs            # 每日分析、周期汇总、定时调度
+│       ├── prompts.rs        # Prompt 模板
+│       └── llm.rs            # OpenAI 兼容调用（重试 / 自定义头）
+├── capabilities/             # 前端权限声明
+├── icons/                    # 应用与托盘图标
+└── tauri.conf.json           # 窗口 / 打包配置
+
+src/
+├── renderer/                 # React 渲染层
 │   └── src/
+│       ├── lib/api.ts        # 前端 IPC 封装（invoke / listen）
 │       ├── pages/            # 页面组件
 │       ├── components/       # 通用组件
 │       ├── contexts/         # React Context
 │       └── styles/           # 样式
-└── shared/                   # 共享类型和常量
+└── shared/                   # 前后端共享类型
 ```
 
 ## 开发
+
+依赖：Node.js 20+、Rust 1.77+、Tauri 相关系统依赖（Linux 需 WebKitGTK）。
 
 ```bash
 # 安装依赖
 npm install
 
-# 启动开发模式
+# 启动开发模式（自动拉起 Vite 与 Tauri 窗口）
 npm run dev
 
-# 类型检查
+# 仅启动前端（浏览器里调不通 IPC，仅用于看样式）
+npm run dev:web
+
+# 类型检查 / Rust 检查
 npm run typecheck
+npm run rust:check
 
-# 构建
-npm run build
+# 构建前端产物
+npm run build:web
 
-# 打包
-npm run build:win    # Windows
-npm run build:mac    # macOS
+# 构建并打包安装包
+npm run build          # 当前平台默认产物
+npm run build:win      # Windows NSIS 安装包
+npm run build:linux    # Linux deb
 ```
 
 ## 配置说明
@@ -101,6 +115,7 @@ npm run build:mac    # macOS
 | analysis.apiKey | - | OpenAI 兼容 API Key |
 | analysis.baseUrl | https://api.openai.com/v1 | API 地址，可替换为其他兼容服务 |
 | analysis.model | gpt-4o | 视觉模型名称 |
+| analysis.customHeaders | - | 自定义请求头，每行 `Key: Value` |
 | analysis.scheduleTime | 23:00 | 每日自动分析时间 |
 | analysis.taskMemoryDays | 3 | 任务记忆回溯天数 |
 | monitoring.screenshotIntervalMs | 600000 | 定时截图间隔（毫秒） |
@@ -110,10 +125,20 @@ npm run build:mac    # macOS
 | monitoring.idleTimeoutMinutes | 5 | 空闲暂停阈值（分钟） |
 | cleanup.retentionDays | 30 | 数据保留天数 |
 
-## 权限要求
+## 数据与权限
 
-- **macOS**：需要屏幕录制权限（截图功能）
-- **Windows**：部分场景可能需要管理员权限
+数据目录（数据库 `monitor.db`、配置 `config.json`、截图 `screenshots/`、日志 `logs/`）：
+
+- **Windows**：`%APPDATA%\com.desktop-monitor.app\`
+- **macOS**：`~/Library/Application Support/com.desktop-monitor.app/`
+- **Linux**：`~/.local/share/com.desktop-monitor.app/`
+
+从旧 Electron 版本升级时，若检测到历史目录（`Desktop Monitor` / `desktop-monitor`）已存在数据，会直接复用该目录，无需手动迁移。
+
+权限要求：
+
+- **macOS**：需要「屏幕录制」权限（截图）与「辅助功能」权限（读取窗口标题）
+- **Windows**：无需管理员权限；便携版依赖系统自带的 WebView2 运行时（Win10 1803+ 默认内置）
 
 ## 工作分类
 

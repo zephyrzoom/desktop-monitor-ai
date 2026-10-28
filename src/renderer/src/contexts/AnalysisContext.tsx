@@ -36,7 +36,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
   const completeCallbacks = useRef<Set<() => void>>(new Set())
 
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onAnalysisProgress((progress) => {
+    const unsubscribe = window.api.onAnalysisProgress((progress) => {
       setAnalysisProgress(progress)
     })
     return unsubscribe
@@ -54,7 +54,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
   }, [])
 
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onAnalysisComplete(() => {
+    const unsubscribe = window.api.onAnalysisComplete(() => {
       notifyComplete()
     })
     return unsubscribe
@@ -66,7 +66,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
       setAnalysisProgress(null)
       setAnalyzingDate(date)
       try {
-        await window.electronAPI.triggerAnalysis(date)
+        await window.api.triggerAnalysis(date)
       } finally {
         setAnalyzing(false)
         setAnalysisProgress(null)
@@ -81,7 +81,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     setBackfilling(true)
     setAnalysisProgress(null)
     try {
-      return await window.electronAPI.triggerBackfillAnalysis()
+      return await window.api.triggerBackfillAnalysis()
     } finally {
       setBackfilling(false)
       setAnalysisProgress(null)
@@ -94,7 +94,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
       setGenerating(true)
       setGeneratingLabel(periodLabel)
       try {
-        await window.electronAPI.triggerPeriodicSummary(periodLabel)
+        await window.api.triggerPeriodicSummary(periodLabel)
       } finally {
         setGenerating(false)
         setGeneratingLabel(null)

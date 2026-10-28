@@ -31,7 +31,7 @@ export function QuarterlySummary(): React.JSX.Element {
 
   async function loadAllSummaries(): Promise<void> {
     try {
-      const result = await window.electronAPI.getPeriodicSummary('quarter', 'all')
+      const result = await window.api.getPeriodicSummary('quarter', 'all')
       setAllSummaries(result as PeriodicSummary[])
     } catch (err) {
       console.error('Failed to load summaries:', err)
@@ -41,7 +41,7 @@ export function QuarterlySummary(): React.JSX.Element {
   async function loadSummary(periodLabel: string): Promise<void> {
     setLoading(true)
     try {
-      const result = await window.electronAPI.getPeriodicSummary('quarter', periodLabel)
+      const result = await window.api.getPeriodicSummary('quarter', periodLabel)
       setSummary(result as PeriodicSummary | null)
     } catch (err) {
       console.error('Failed to load summary:', err)

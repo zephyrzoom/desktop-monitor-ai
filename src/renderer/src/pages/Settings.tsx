@@ -46,9 +46,9 @@ export function Settings(): React.JSX.Element {
 
   async function loadConfig(): Promise<void> {
     try {
-      const result = await window.electronAPI.getConfig()
+      const result = await window.api.getConfig()
       setConfig(result as Config)
-      const backend = await window.electronAPI.getActiveBackend()
+      const backend = await window.api.getActiveBackend()
       setActiveBackend(backend as string)
     } catch (err) {
       console.error('Failed to load config:', err)
@@ -60,11 +60,11 @@ export function Settings(): React.JSX.Element {
 
     setSaving(true)
     try {
-      await window.electronAPI.setConfig('general', config.general)
-      await window.electronAPI.setConfig('analysis', config.analysis)
-      await window.electronAPI.setConfig('monitoring', config.monitoring)
-      await window.electronAPI.setConfig('cleanup', config.cleanup)
-      await window.electronAPI.setConfig('storage', config.storage)
+      await window.api.setConfig('general', config.general)
+      await window.api.setConfig('analysis', config.analysis)
+      await window.api.setConfig('monitoring', config.monitoring)
+      await window.api.setConfig('cleanup', config.cleanup)
+      await window.api.setConfig('storage', config.storage)
       setMessageType('success')
       setMessage('配置已保存')
       setTimeout(() => setMessage(''), 3000)
@@ -93,7 +93,10 @@ export function Settings(): React.JSX.Element {
     })
   }
 
-  function updateMonitoring(key: keyof Config['monitoring'], value: boolean | number | string): void {
+  function updateMonitoring(
+    key: keyof Config['monitoring'],
+    value: boolean | number | string
+  ): void {
     if (!config) return
     setConfig({
       ...config,
@@ -106,14 +109,6 @@ export function Settings(): React.JSX.Element {
     setConfig({
       ...config,
       cleanup: { ...config.cleanup, [key]: value }
-    })
-  }
-
-  function updateStorage(key: keyof Config['storage'], value: string): void {
-    if (!config) return
-    setConfig({
-      ...config,
-      storage: { ...config.storage, [key]: value }
     })
   }
 
@@ -137,7 +132,8 @@ export function Settings(): React.JSX.Element {
             animation: 'fadeIn 0.3s ease-in'
           }}
         >
-          {messageType === 'error' ? '❌ ' : '✓ '}{message}
+          {messageType === 'error' ? '❌ ' : '✓ '}
+          {message}
         </div>
       )}
 
@@ -237,7 +233,14 @@ export function Settings(): React.JSX.Element {
                 resize: 'vertical'
               }}
             />
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                display: 'block'
+              }}
+            >
               部分中转/企业 API 需要额外的报文头。每行一条，格式为 Key: Value，以 # 开头的行忽略
             </span>
           </div>
@@ -309,7 +312,14 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             />
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                display: 'block'
+              }}
+            >
               分析时回溯最近 N 天的任务记忆，用于识别跨天延续的任务
             </span>
           </div>
@@ -330,7 +340,14 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             />
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                display: 'block'
+              }}
+            >
               调用大模型失败时的重试次数，适用于超时或返回为空的情况
             </span>
           </div>
@@ -369,7 +386,14 @@ export function Settings(): React.JSX.Element {
                 }}
               />
             </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                display: 'block'
+              }}
+            >
               仅在指定时间段内进行监控，默认全天监控
             </span>
           </div>
@@ -390,7 +414,14 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             />
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                display: 'block'
+              }}
+            >
               鼠标键盘无操作超过此时间自动暂停监控，有操作后自动恢复
             </span>
           </div>
@@ -401,7 +432,9 @@ export function Settings(): React.JSX.Element {
               min={1}
               step={1}
               value={Math.round(config.monitoring.screenshotIntervalMs / 60000)}
-              onChange={(e) => updateMonitoring('screenshotIntervalMs', parseInt(e.target.value) * 60000)}
+              onChange={(e) =>
+                updateMonitoring('screenshotIntervalMs', parseInt(e.target.value) * 60000)
+              }
               style={{
                 width: '200px',
                 padding: '8px 12px',
@@ -419,7 +452,9 @@ export function Settings(): React.JSX.Element {
               min={1}
               step={1}
               value={config.monitoring.windowChangeDebounceSec}
-              onChange={(e) => updateMonitoring('windowChangeDebounceSec', parseInt(e.target.value))}
+              onChange={(e) =>
+                updateMonitoring('windowChangeDebounceSec', parseInt(e.target.value))
+              }
               style={{
                 width: '200px',
                 padding: '8px 12px',
@@ -450,8 +485,8 @@ export function Settings(): React.JSX.Element {
               <button
                 className="button button-secondary"
                 onClick={async () => {
-                  const dir = await window.electronAPI.getScreenshotsDir()
-                  window.electronAPI.openPath(dir as string)
+                  const dir = await window.api.getScreenshotsDir()
+                  window.api.openPath(dir as string)
                 }}
               >
                 打开文件夹
@@ -489,9 +524,7 @@ export function Settings(): React.JSX.Element {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '4px' }}>数据库类型</label>
-            <select
-              value={config.storage?.backend || 'better-sqlite3'}
-              onChange={(e) => updateStorage('backend', e.target.value)}
+            <div
               style={{
                 padding: '8px 12px',
                 backgroundColor: 'var(--bg-primary)',
@@ -500,19 +533,28 @@ export function Settings(): React.JSX.Element {
                 color: 'var(--text-primary)'
               }}
             >
-              <option value="better-sqlite3">SQLite (better-sqlite3)</option>
-              <option value="sql.js">SQLite (sql.js 纯JS版)</option>
-            </select>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-              当前实际使用: {activeBackend === 'sql.js' ? 'sql.js 纯JS版' : 'better-sqlite3'}
-              {config.storage?.backend !== activeBackend && (
-                <span style={{ color: 'var(--warning, #f59e0b)', marginLeft: '8px' }}>
-                  (better-sqlite3 加载失败，已自动降级)
-                </span>
-              )}
+              SQLite（内置 rusqlite，WAL 模式）
+            </div>
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                display: 'block'
+              }}
+            >
+              当前实际使用: {activeBackend || 'rusqlite'}
             </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-              切换数据库类型后需要重启应用才能生效
+            <span
+              style={{
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginTop: '4px',
+                display: 'block'
+              }}
+            >
+              Tauri 版本内置 SQLite 驱动，无需再选择纯 JS 后端；数据文件位于应用数据目录的
+              monitor.db
             </span>
           </div>
         </div>

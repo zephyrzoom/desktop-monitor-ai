@@ -38,7 +38,7 @@ export function DailyReport(): React.JSX.Element {
 
   async function loadAllAnalyses(): Promise<void> {
     try {
-      const result = await window.electronAPI.getDailyAnalysis('all')
+      const result = await window.api.getDailyAnalysis('all')
       setAllAnalyses(result as DailyAnalysis[])
     } catch (err) {
       console.error('Failed to load analyses:', err)
@@ -48,7 +48,7 @@ export function DailyReport(): React.JSX.Element {
   async function loadAnalysis(date: string): Promise<void> {
     setLoading(true)
     try {
-      const result = await window.electronAPI.getDailyAnalysis(date)
+      const result = await window.api.getDailyAnalysis(date)
       setAnalysis(result as DailyAnalysis | null)
     } catch (err) {
       console.error('Failed to load analysis:', err)
