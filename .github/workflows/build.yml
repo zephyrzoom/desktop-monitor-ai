@@ -102,6 +102,9 @@ jobs:
             libgbm-dev \
             libegl-dev \
             libxkbcommon-dev \
+            libx11-dev \
+            libxext-dev \
+            libxss-dev \
             libxcb1-dev \
             libxcb-randr0-dev \
             libxcb-shm0-dev \
