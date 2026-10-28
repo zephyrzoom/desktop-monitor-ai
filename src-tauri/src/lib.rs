@@ -99,10 +99,18 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("启动 Tauri 应用失败")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                quit(app);
+        .run(|app, event| match event {
+            tauri::RunEvent::Exit => quit(app),
+            // macOS 上点击 Dock 图标时恢复窗口（对应旧版的 app.on('activate')）
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { .. } => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
             }
+            _ => {}
         });
 }
 
