@@ -83,18 +83,29 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
+          # Tauri(webkit2gtk) + 截图(xcap：pipewire / libwayshot) + TLS(openssl) 的构建依赖
           sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libssl-dev \
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            patchelf \
+            clang \
+            libclang-dev \
+            libpipewire-0.3-dev \
+            libspa-0.2-dev \
+            libwayland-dev \
+            libdrm-dev \
+            libgbm-dev \
+            libegl-dev \
+            libxkbcommon-dev \
             libxcb1-dev \
             libxcb-randr0-dev \
             libxcb-shm0-dev \
-            libxcb-util-dev \
-            libdbus-1-dev \
-            libgbm-dev \
-            patchelf
+            libxcb-util-dev
 
       - name: Install dependencies
         run: npm ci
