@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use chrono::{Local, Utc};
+use chrono::Local;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use image::{DynamicImage, ExtendedColorType, RgbaImage};
@@ -49,8 +49,9 @@ pub fn capture(rt: &Runtime, trigger: &str) -> Option<i64> {
 
     let dir = rt.screenshots_dir();
     let now_local = Local::now();
-    // 目录沿用 UTC 日期、文件名沿用本地时间，保持与历史数据一致
-    let date_dir = dir.join(Utc::now().format("%Y-%m-%d").to_string());
+    // 目录名按本地日期归档，与数据库 `date(timestamp, 'localtime')` 的口径保持一致；
+    // 文件名沿用本地时分秒（历史数据也是本地时间）。
+    let date_dir = dir.join(now_local.format("%Y-%m-%d").to_string());
     if let Err(err) = fs::create_dir_all(&date_dir) {
         logger::error(format!("创建截图目录失败：{err}"));
         return None;
@@ -157,13 +158,15 @@ pub fn cleanup(rt: &Runtime) {
         Err(err) => logger::error(format!("清理过期任务记忆失败：{err}")),
     }
 
-    // 删除过期的空日期目录
+    // 删除过期的空日期目录。
+    // 目录名按 UTC 日期命名，而 cutoff 是本地日期，本地 00:00-08:00 时前者会比后者早一天，
+    // 因此只删除已经清空的目录，避免误删仍有未过期截图的目录。
     if let Ok(entries) = fs::read_dir(&dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
             if path.is_dir() && name < cutoff {
-                let _ = fs::remove_dir_all(path);
+                let _ = fs::remove_dir(path);
             }
         }
     }

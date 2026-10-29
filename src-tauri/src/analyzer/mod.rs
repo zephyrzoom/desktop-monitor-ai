@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use base64::Engine as _;
-use chrono::{Duration as ChronoDuration, Local, NaiveDate};
+use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{ExtendedColorType, GenericImageView};
 use serde_json::{json, Value};
@@ -34,11 +34,30 @@ fn emit_progress(rt: &Runtime, step: impl Into<String>, current: usize, total: u
     );
 }
 
+/// 数据库时间戳按 UTC 存储（默认值 `strftime('%Y-%m-%dT%H:%M:%f','now')`），
+/// 解析后需要换算成本地时间再使用，否则日报里的时间段会比实际早一个时区偏移。
+fn parse_db_timestamp(timestamp: &str) -> Option<DateTime<Local>> {
+    if let Ok(datetime) = DateTime::parse_from_rfc3339(timestamp) {
+        return Some(datetime.with_timezone(&Local));
+    }
+
+    const FORMATS: [&str; 4] = [
+        "%Y-%m-%dT%H:%M:%S%.f",
+        "%Y-%m-%d %H:%M:%S%.f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+    ];
+
+    FORMATS.iter().find_map(|format| {
+        chrono::NaiveDateTime::parse_from_str(timestamp, format)
+            .ok()
+            .map(|naive| DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).with_timezone(&Local))
+    })
+}
+
 fn hhmm(timestamp: &str) -> String {
-    timestamp
-        .split('T')
-        .nth(1)
-        .map(|time| time.chars().take(5).collect())
+    parse_db_timestamp(timestamp)
+        .map(|datetime| datetime.format("%H:%M").to_string())
         .unwrap_or_else(|| "00:00".to_string())
 }
 

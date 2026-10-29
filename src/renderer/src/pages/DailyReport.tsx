@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { DatePicker } from '../components/DatePicker'
 import { WorkItemList } from '../components/WorkItemList'
 import { useAnalysis } from '../contexts/AnalysisContext'
+import { localDateString } from '../lib/date'
 import type { DailyAnalysisResult, DailyAnalysis } from '../../../shared/types/database'
 
 export function DailyReport(): React.JSX.Element {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(localDateString)
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null)
   const [allAnalyses, setAllAnalyses] = useState<DailyAnalysis[]>([])
   const [loading, setLoading] = useState(false)

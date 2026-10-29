@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { MonitorStatus } from '../components/MonitorStatus'
 import { WorkItemList } from '../components/WorkItemList'
 import { useAnalysis } from '../contexts/AnalysisContext'
+import { localDateString } from '../lib/date'
 import type { DailyAnalysisResult } from '../../../shared/types/database'
 
 interface TodayStats {
@@ -12,7 +13,7 @@ interface TodayStats {
 }
 
 function getTodayStr(): string {
-  return new Date().toISOString().split('T')[0]
+  return localDateString()
 }
 
 export function Today(): React.JSX.Element {

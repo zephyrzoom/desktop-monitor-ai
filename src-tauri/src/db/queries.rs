@@ -106,7 +106,7 @@ impl Database {
         let conn = self.conn();
         collect(
             &conn,
-            "SELECT * FROM screenshots WHERE date(timestamp) = ?1 ORDER BY timestamp ASC",
+            "SELECT * FROM screenshots WHERE date(timestamp, 'localtime') = ?1 ORDER BY timestamp ASC",
             &[&date],
             map_screenshot,
         )
@@ -115,7 +115,7 @@ impl Database {
     pub fn screenshot_count_by_date(&self, date: &str) -> Result<i64, String> {
         let conn = self.conn();
         conn.query_row(
-            "SELECT COUNT(*) FROM screenshots WHERE date(timestamp) = ?1",
+            "SELECT COUNT(*) FROM screenshots WHERE date(timestamp, 'localtime') = ?1",
             params![date],
             |row| row.get(0),
         )
@@ -126,7 +126,7 @@ impl Database {
         let conn = self.conn();
         collect(
             &conn,
-            "SELECT * FROM screenshots WHERE date(timestamp) < ?1 ORDER BY timestamp ASC",
+            "SELECT * FROM screenshots WHERE date(timestamp, 'localtime') < ?1 ORDER BY timestamp ASC",
             &[&date],
             map_screenshot,
         )
@@ -137,13 +137,13 @@ impl Database {
         // 先解除 active_windows 对即将删除截图的引用，避免外键约束导致删除失败
         conn.execute(
             "UPDATE active_windows SET screenshot_id = NULL
-             WHERE screenshot_id IN (SELECT id FROM screenshots WHERE date(timestamp) < ?1)",
+             WHERE screenshot_id IN (SELECT id FROM screenshots WHERE date(timestamp, 'localtime') < ?1)",
             params![date],
         )
         .map_err(|e| e.to_string())?;
 
         conn.execute(
-            "DELETE FROM screenshots WHERE date(timestamp) < ?1",
+            "DELETE FROM screenshots WHERE date(timestamp, 'localtime') < ?1",
             params![date],
         )
         .map_err(|e| e.to_string())
@@ -157,8 +157,8 @@ impl Database {
         let conn = self.conn();
         collect(
             &conn,
-            "SELECT DISTINCT date(timestamp) AS d FROM screenshots
-             WHERE date(timestamp) >= ?1 AND date(timestamp) <= ?2",
+            "SELECT DISTINCT date(timestamp, 'localtime') AS d FROM screenshots
+             WHERE date(timestamp, 'localtime') >= ?1 AND date(timestamp, 'localtime') <= ?2",
             &[&start, &end],
             |row| row.get(0),
         )
@@ -168,7 +168,7 @@ impl Database {
         let conn = self.conn();
         collect(
             &conn,
-            "SELECT DISTINCT date(timestamp) AS d FROM screenshots ORDER BY d ASC",
+            "SELECT DISTINCT date(timestamp, 'localtime') AS d FROM screenshots ORDER BY d ASC",
             &[],
             |row| row.get(0),
         )
@@ -199,7 +199,7 @@ impl Database {
         let conn = self.conn();
         collect(
             &conn,
-            "SELECT * FROM active_windows WHERE date(timestamp) = ?1 ORDER BY timestamp ASC",
+            "SELECT * FROM active_windows WHERE date(timestamp, 'localtime') = ?1 ORDER BY timestamp ASC",
             &[&date],
             map_active_window,
         )
@@ -210,7 +210,7 @@ impl Database {
         collect(
             &conn,
             "SELECT app_name, SUM(duration_ms) AS total_duration_ms, COUNT(*) AS count
-             FROM active_windows WHERE date(timestamp) = ?1
+             FROM active_windows WHERE date(timestamp, 'localtime') = ?1
              GROUP BY app_name ORDER BY total_duration_ms DESC",
             &[&date],
             |row| {
@@ -249,7 +249,7 @@ impl Database {
         let conn = self.conn();
         collect(
             &conn,
-            "SELECT substr(timestamp, 12, 5) AS time, app_name, window_title
+            "SELECT strftime('%H:%M', timestamp, 'localtime') AS time, app_name, window_title
              FROM active_windows WHERE timestamp >= ?1 AND timestamp <= ?2
              ORDER BY timestamp ASC",
             &[&start, &end],
@@ -266,7 +266,7 @@ impl Database {
     pub fn delete_active_windows_before_date(&self, date: &str) -> Result<usize, String> {
         let conn = self.conn();
         conn.execute(
-            "DELETE FROM active_windows WHERE date(timestamp) < ?1",
+            "DELETE FROM active_windows WHERE date(timestamp, 'localtime') < ?1",
             params![date],
         )
         .map_err(|e| e.to_string())
@@ -405,7 +405,7 @@ impl Database {
         collect(
             &conn,
             "SELECT * FROM task_memory
-             WHERE status = 'active' AND last_active_date >= date('now', '-' || ?1 || ' days')
+             WHERE status = 'active' AND last_active_date >= date('now', '-' || ?1 || ' days', 'localtime')
              ORDER BY last_active_date DESC, last_active_time DESC",
             &[&days],
             map_task_memory,
@@ -444,7 +444,7 @@ impl Database {
             "UPDATE task_memory
              SET status = 'completed',
                  updated_at = strftime('%Y-%m-%dT%H:%M:%f', 'now')
-             WHERE status = 'active' AND last_active_date < date('now', '-' || ?1 || ' days')",
+             WHERE status = 'active' AND last_active_date < date('now', '-' || ?1 || ' days', 'localtime')",
             params![days],
         )
         .map_err(|e| e.to_string())
