@@ -77,6 +77,9 @@ src/
 │       ├── contexts/         # React Context
 │       └── styles/           # 样式
 └── shared/                   # 前后端共享类型
+
+scripts/
+└── bump-version.mjs          # 版本号递增（打包前自动执行，同步 4 处版本声明）
 ```
 
 ## 开发
@@ -100,11 +103,30 @@ npm run rust:check
 # 构建前端产物
 npm run build:web
 
-# 构建并打包安装包
+# 构建并打包安装包（打包前自动递增 patch 版本号）
 npm run build          # 当前平台默认产物
 npm run build:win      # Windows NSIS 安装包
 npm run build:linux    # Linux deb
+
+# 手动递增版本号，同步写入 package.json / tauri.conf.json / Cargo.toml
+npm run bump           # 1.0.0 -> 1.0.1
+npm run bump minor     # 1.0.0 -> 1.1.0
+npm run bump major     # 1.0.0 -> 2.0.0
+npm run bump 1.2.3     # 直接指定版本
+npm run bump -- --dry-run   # 只看结果，不写文件
 ```
+
+## 版本号
+
+`package.json` 的 `version` 是唯一事实来源，打包脚本会自动递增并同步到
+`src-tauri/tauri.conf.json`（决定安装包版本）、`src-tauri/Cargo.toml` 与 `Cargo.lock`。
+
+构建时 vite 会把版本号与构建时间注入前端，展示在两处：
+
+- 左侧边栏底部（常驻，鼠标悬停显示构建时间）
+- 配置页 →「关于」卡片（版本 / 构建时间 / 运行平台）
+
+所以界面上看到的版本一定与实际安装包一致。
 
 ## 配置说明
 

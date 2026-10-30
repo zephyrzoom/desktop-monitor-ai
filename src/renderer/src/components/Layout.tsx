@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { getBuildTime, getVersionLabel } from '../lib/version'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -15,6 +16,7 @@ const navItems = [
 
 export function Layout({ children }: LayoutProps): React.JSX.Element {
   const location = useLocation()
+  const buildTime = getBuildTime()
 
   return (
     <div className="app-container">
@@ -33,6 +35,11 @@ export function Layout({ children }: LayoutProps): React.JSX.Element {
             </Link>
           ))}
         </nav>
+        <div className="sidebar-footer">
+          <span className="version-badge" title={buildTime ? `构建于 ${buildTime}` : undefined}>
+            {getVersionLabel()}
+          </span>
+        </div>
       </aside>
       <main className="main-content">{children}</main>
     </div>

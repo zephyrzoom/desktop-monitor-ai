@@ -12,9 +12,10 @@
     "dev": "tauri dev",
     "dev:web": "vite",
     "build:web": "vite build",
-    "build": "npm run typecheck && tauri build",
-    "build:win": "tauri build --bundles nsis",
-    "build:linux": "tauri build --bundles deb",
+    "bump": "node scripts/bump-version.mjs",
+    "build": "npm run bump && npm run typecheck && tauri build",
+    "build:win": "npm run bump && tauri build --bundles nsis",
+    "build:linux": "npm run bump && tauri build --bundles deb",
     "rust:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "tauri": "tauri"
   },

@@ -27,3 +27,13 @@
   `strftime('%H:%M', timestamp,'localtime')`；Rust 用 `analyzer::parse_db_timestamp()`；
   前端日期用 `lib/date.ts` 的 `localDateString()`，**禁止** `toISOString().split('T')[0]`。
 - 新增按日期过滤的查询时，别忘了 `'localtime'`，否则会有「凌晨记录归到前一天」的问题。
+
+## 版本号约定（2026-10-30 确立）
+
+- `package.json` 的 `version` 是唯一事实来源；**每次打包都会自动 +1 patch**
+  （`build` / `build:win` / `build:linux` 前置 `npm run bump`）。
+- 递增脚本 `scripts/bump-version.mjs` 同步 package.json / `tauri.conf.json` /
+  `Cargo.toml` / `Cargo.lock` 四处，只做文本替换，不要整体重写 JSON。
+- 界面展示：侧边栏底部 `version-badge` + 配置页「关于」卡片；
+  版本经 `vite define` 的 `__APP_VERSION__` / `__BUILD_TIME__` 注入，
+  统一从 `src/renderer/src/lib/version.ts` 取。

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { APP_VERSION, getBuildTime, getPlatformName } from '../lib/version'
 
 interface Config {
   general: {
@@ -557,6 +558,36 @@ export function Settings(): React.JSX.Element {
               monitor.db
             </span>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">关于</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[
+            { label: '当前版本', value: `v${APP_VERSION}` },
+            { label: '构建时间', value: getBuildTime() || '未知' },
+            { label: '运行平台', value: getPlatformName() }
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}
+            >
+              <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
+              <span
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                  userSelect: 'text'
+                }}
+              >
+                {item.value}
+              </span>
+            </div>
+          ))}
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            每次打包会自动递增版本号并同步到安装包（package.json / tauri.conf.json /
+            Cargo.toml），手动指定可用 npm run bump minor
+          </span>
         </div>
       </div>
 
