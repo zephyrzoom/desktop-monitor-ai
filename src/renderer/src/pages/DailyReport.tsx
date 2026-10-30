@@ -10,15 +10,19 @@ export function DailyReport(): React.JSX.Element {
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null)
   const [allAnalyses, setAllAnalyses] = useState<DailyAnalysis[]>([])
   const [loading, setLoading] = useState(false)
-  const [backfillResult, setBackfillResult] = useState<{ total: number; succeeded: number } | null>(
-    null
-  )
+  const [batchResult, setBatchResult] = useState<{
+    label: string
+    total: number
+    succeeded: number
+  } | null>(null)
   const {
     analyzing,
     analysisProgress,
     backfilling,
+    reanalyzing,
     triggerAnalysis,
     triggerBackfillAnalysis,
+    triggerReanalyzeRecent,
     onAnalysisComplete
   } = useAnalysis()
 
@@ -62,13 +66,25 @@ export function DailyReport(): React.JSX.Element {
     triggerAnalysis(selectedDate)
   }
 
-  async function handleBackfill(): Promise<void> {
-    setBackfillResult(null)
-    const result = await triggerBackfillAnalysis()
+  async function runBatch(
+    label: string,
+    task: () => Promise<{ total: number; succeeded: number } | null>
+  ): Promise<void> {
+    setBatchResult(null)
+    const result = await task()
     if (result) {
-      setBackfillResult({ total: result.total, succeeded: result.succeeded })
+      setBatchResult({ label, total: result.total, succeeded: result.succeeded })
     }
     loadAllAnalyses()
+    loadAnalysis(selectedDate)
+  }
+
+  function handleBackfill(): void {
+    void runBatch('补偿分析', triggerBackfillAnalysis)
+  }
+
+  function handleReanalyze(): void {
+    void runBatch('重算最近 7 天', () => triggerReanalyzeRecent(7))
   }
 
   let analysisResult: DailyAnalysisResult | null = null
@@ -99,17 +115,24 @@ export function DailyReport(): React.JSX.Element {
         <button
           className="button button-secondary"
           onClick={handleBackfill}
-          disabled={backfilling || analyzing}
+          disabled={backfilling || reanalyzing || analyzing}
         >
           {backfilling ? '补偿分析中...' : '补偿分析'}
         </button>
+        <button
+          className="button button-secondary"
+          onClick={handleReanalyze}
+          disabled={backfilling || reanalyzing || analyzing}
+        >
+          {reanalyzing ? '重算中...' : '重算最近 7 天'}
+        </button>
       </div>
 
-      {backfilling && (
+      {(backfilling || reanalyzing) && (
         <div className="analysis-progress" style={{ marginTop: '16px' }}>
           <div className="analysis-progress-header">
             <div className="analysis-spinner"></div>
-            <span>正在补偿分析...</span>
+            <span>{reanalyzing ? '正在重算日报...' : '正在补偿分析...'}</span>
           </div>
           {analysisProgress && (
             <div className="analysis-progress-detail">
@@ -134,13 +157,13 @@ export function DailyReport(): React.JSX.Element {
         </div>
       )}
 
-      {backfillResult && !backfilling && (
+      {batchResult && !backfilling && !reanalyzing && (
         <div className="summary-box" style={{ marginTop: '16px' }}>
-          {backfillResult.total === 0
-            ? '没有需要补偿分析的日期'
-            : `补偿分析完成：共 ${backfillResult.total} 天，成功 ${backfillResult.succeeded} 天${
-                backfillResult.succeeded < backfillResult.total
-                  ? `，失败 ${backfillResult.total - backfillResult.succeeded} 天`
+          {batchResult.total === 0
+            ? `${batchResult.label}：没有需要处理的日期`
+            : `${batchResult.label}完成：共 ${batchResult.total} 天，成功 ${batchResult.succeeded} 天${
+                batchResult.succeeded < batchResult.total
+                  ? `，失败 ${batchResult.total - batchResult.succeeded} 天`
                   : ''
               }`}
         </div>

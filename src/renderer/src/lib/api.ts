@@ -60,6 +60,8 @@ export const api = {
   triggerAnalysis: (date: string) =>
     invoke<{ status: string; date: string }>('analysis_trigger', { date }),
   triggerBackfillAnalysis: () => invoke<BackfillResult>('analysis_backfill'),
+  reanalyzeRecent: (days: number) =>
+    invoke<BackfillResult>('analysis_reanalyze_recent', { days }),
   triggerPeriodicSummary: (periodLabel: string) =>
     invoke<{ status: string; periodLabel: string }>('summary_trigger', { periodLabel }),
   onAnalysisProgress: (callback: (progress: AnalysisProgressPayload) => void) =>

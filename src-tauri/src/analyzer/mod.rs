@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use base64::Engine as _;
-use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate, Utc};
+use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate, Timelike, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{ExtendedColorType, GenericImageView};
 use serde_json::{json, Value};
@@ -156,9 +156,12 @@ fn create_batches(
     batches
 }
 
+/// 数据库里的时间戳是 `YYYY-MM-DDTHH:MM:SS.SSS`（无时区后缀），
+/// 直接用 `parse_from_rfc3339` 会全部解析失败并退化成 0，
+/// 导致批次间隔判断失效、整天截图被合并成一批。
 fn parse_timestamp(timestamp: &str) -> i64 {
-    chrono::DateTime::parse_from_rfc3339(timestamp)
-        .map(|dt| dt.timestamp_millis())
+    parse_db_timestamp(timestamp)
+        .map(|datetime| datetime.timestamp_millis())
         .unwrap_or(0)
 }
 
@@ -192,11 +195,12 @@ fn split_oversized(mut batch: Vec<Screenshot>, max_per_batch: usize) -> Vec<Vec<
     result
 }
 
-fn prepare_images(rt: &Runtime, screenshots: &[Screenshot]) -> Vec<String> {
+/// 返回 `(原始下标, base64)`，丢弃编码失败的截图时仍能对上它的时间戳。
+fn prepare_images(rt: &Runtime, screenshots: &[Screenshot]) -> Vec<(usize, String)> {
     let dir = rt.screenshots_dir();
     let mut results = Vec::new();
 
-    for shot in screenshots {
+    for (index, shot) in screenshots.iter().enumerate() {
         let path = dir.join(&shot.file_path);
         let image = match image::open(&path) {
             Ok(image) => image,
@@ -241,7 +245,7 @@ fn prepare_images(rt: &Runtime, screenshots: &[Screenshot]) -> Vec<String> {
             continue;
         }
 
-        results.push(encoded);
+        results.push((index, encoded));
     }
 
     results
@@ -262,6 +266,11 @@ async fn analyze_batch(
     let images = prepare_images(rt, screenshots);
     let start = hhmm(&screenshots[0].timestamp);
     let end = hhmm(&screenshots[screenshots.len() - 1].timestamp);
+    // 图片顺序与这里的时间点一一对应，模型据此判断每张截图的时刻
+    let screenshot_times = images
+        .iter()
+        .map(|(index, _)| hhmm(&screenshots[*index].timestamp))
+        .collect::<Vec<_>>();
 
     logger::info(format!(
         "[DailyAnalyzer] 调用 AI 分析批次: {} 张截图, {} 张已编码, 时间 {start}-{end}",
@@ -272,13 +281,14 @@ async fn analyze_batch(
     let prompt = prompts::build_daily_analysis_prompt(
         app_usage,
         (&start, &end),
+        &screenshot_times,
         prior_work_items,
         window_sequence,
         task_memories,
     );
 
     let mut content = vec![json!({ "type": "text", "text": prompt })];
-    for image in images {
+    for (_, image) in images {
         content.push(json!({
             "type": "image_url",
             "image_url": { "url": format!("data:image/jpeg;base64,{image}"), "detail": "low" }
@@ -850,23 +860,86 @@ pub async fn backfill_all(rt: &Arc<Runtime>) -> (usize, usize) {
     (total, succeeded)
 }
 
+/// 定时任务要总结的日期。
+///
+/// 凌晨（06:00 前）触发时总结「昨天」：那一刻今天才刚开始，只有 0 点后的零星截图，
+/// 直接分析今天会生成一条从 00:00 起、内容残缺的日报，而且因为日报已存在，
+/// 第二天也不会被补偿分析重算，于是每天都留着一条错误的凌晨日报。
+fn scheduled_target_date(now: DateTime<Local>) -> String {
+    if now.hour() < 6 {
+        date_string(now.date_naive() - ChronoDuration::days(1))
+    } else {
+        now.format("%Y-%m-%d").to_string()
+    }
+}
+
+/// 重算最近 `days` 天内「已有日报」的日期。
+///
+/// 用于修正历史上按错误时区、或按残缺当日数据生成的日报；今天不重算（数据还没结束）。
+pub async fn reanalyze_recent(rt: &Arc<Runtime>, days: i64) -> (usize, usize) {
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let start = add_days(&today, -(days.max(1) - 1));
+
+    let mut dates = match rt.db.dates_with_screenshots_in_range(&start, &today) {
+        Ok(dates) => dates,
+        Err(err) => {
+            logger::error(format!("查询待重算日期失败：{err}"));
+            return (0, 0);
+        }
+    };
+    dates.retain(|date| date != &today);
+    dates.sort();
+
+    let total = dates.len();
+    if total == 0 {
+        emit_progress(rt, "没有需要重算的日期", 0, 0);
+        return (0, 0);
+    }
+
+    logger::info(format!(
+        "[AnalysisScheduler] 开始重算 {} 天日报: {}",
+        total,
+        dates.join(", ")
+    ));
+
+    let mut succeeded = 0;
+    for (index, date) in dates.iter().enumerate() {
+        emit_progress(rt, format!("正在重算 {date}"), index + 1, total);
+        match analyze_daily(rt, date).await {
+            Ok(Some(_)) => {
+                succeeded += 1;
+                rt.emit("analysis:result", date.clone());
+            }
+            Ok(None) => {}
+            Err(err) => logger::error(format!("重算 {date} 失败：{err}")),
+        }
+    }
+
+    emit_progress(rt, "重算完成", total, total);
+    logger::info(format!(
+        "[AnalysisScheduler] 重算完成: {succeeded}/{total} 成功"
+    ));
+
+    (total, succeeded)
+}
+
 async fn run_scheduled(rt: Arc<Runtime>) {
     if !rt.try_begin_analysis() {
         logger::warn("[AnalysisScheduler] 已有分析任务在执行，跳过本次定时分析");
         return;
     }
 
-    let today = Local::now().format("%Y-%m-%d").to_string();
-    logger::info(format!("[AnalysisScheduler] 定时触发分析: {today}"));
+    let target = scheduled_target_date(Local::now());
+    logger::info(format!("[AnalysisScheduler] 定时触发分析: {target}"));
 
-    match analyze_daily(&rt, &today).await {
-        Ok(Some(_)) => rt.emit("analysis:result", today.clone()),
+    match analyze_daily(&rt, &target).await {
+        Ok(Some(_)) => rt.emit("analysis:result", target.clone()),
         Ok(None) => {}
         Err(err) => logger::error(format!("定时分析失败：{err}")),
     }
 
-    let start = add_days(&today, -(BACKFILL_DAYS - 1));
-    backfill_range(&rt, &start, &today).await;
+    let start = add_days(&target, -(BACKFILL_DAYS - 1));
+    backfill_range(&rt, &start, &target).await;
 
     rt.end_analysis();
 }

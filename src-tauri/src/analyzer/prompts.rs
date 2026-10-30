@@ -36,11 +36,18 @@ fn memory_apps(memory: &TaskMemory) -> String {
 pub fn build_daily_analysis_prompt(
     app_usage: &[AppUsage],
     time_range: (&str, &str),
+    screenshot_times: &[String],
     prior_work_items: &[WorkItem],
     window_sequence: &[WindowSwitch],
     task_memories: &[TaskMemory],
 ) -> String {
     let app_usage_text = app_usage_lines(app_usage, true);
+
+    let screenshot_times_text = if screenshot_times.is_empty() {
+        "无".to_string()
+    } else {
+        screenshot_times.join(", ")
+    };
 
     let prior_context = if prior_work_items.is_empty() {
         String::new()
@@ -103,6 +110,7 @@ pub fn build_daily_analysis_prompt(
         r#"你是一个工作内容分析助手。根据以下桌面截图和应用使用记录，分析用户在这段时间内做了什么工作。
 
 时间范围: {start} - {end}
+本次截图时间点（共 {shot_count} 张，与后面的图片顺序一一对应）: {screenshot_times_text}
 
 应用使用记录:
 {app_usage_block}
@@ -123,6 +131,7 @@ pub fn build_daily_analysis_prompt(
 
 注意:
 - work_items 中的 activity 要具体描述用户在做什么，不要泛泛而谈
+- time_range 必须落在上面的时间范围和截图时间点之内，按图片顺序把每张截图对应到「截图时间点」，不要自行编造时段（尤其不要出现 00:00 起始这种与截图时间无关的时间段）
 - category 可以是: 编程开发、文档写作、数据分析、会议沟通、网页浏览、设计工作、学习研究、邮件处理、其他
 - 如果截图内容不清晰或无法判断，请基于应用使用记录推测
 - 如果这段时间与之前的工作内容相关联，请确保你的分析在时间和活动上与已有内容保持连贯
@@ -131,6 +140,8 @@ pub fn build_daily_analysis_prompt(
 - summary 用一两句话概括这段时间内的主要工作内容"#,
         start = time_range.0,
         end = time_range.1,
+        shot_count = screenshot_times.len(),
+        screenshot_times_text = screenshot_times_text,
         app_usage_block = app_usage_block,
         window_sequence_text = window_sequence_text,
         task_memory_text = task_memory_text,

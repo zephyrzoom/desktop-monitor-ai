@@ -150,6 +150,24 @@ pub async fn analysis_backfill(runtime: State<'_, Arc<Runtime>>) -> Result<Value
 }
 
 #[tauri::command]
+pub async fn analysis_reanalyze_recent(
+    runtime: State<'_, Arc<Runtime>>,
+    days: i64,
+) -> Result<Value, String> {
+    let runtime = runtime.inner().clone();
+
+    if !runtime.try_begin_analysis() {
+        logger::warn("已有分析任务在执行，忽略本次重算");
+        return Ok(json!({ "status": "busy", "total": 0, "succeeded": 0 }));
+    }
+
+    let (total, succeeded) = analyzer::reanalyze_recent(&runtime, days).await;
+    runtime.end_analysis();
+
+    Ok(json!({ "status": "completed", "total": total, "succeeded": succeeded }))
+}
+
+#[tauri::command]
 pub async fn summary_trigger(
     runtime: State<'_, Arc<Runtime>>,
     period_label: String,

@@ -8,12 +8,19 @@ interface AnalysisContextValue {
   analyzingDate: string | null
   // Backfill state
   backfilling: boolean
+  // Reanalyze state
+  reanalyzing: boolean
   // Periodic summary state
   generating: boolean
   generatingLabel: string | null
   // Actions
   triggerAnalysis: (date: string) => Promise<void>
   triggerBackfillAnalysis: () => Promise<{
+    status: string
+    total: number
+    succeeded: number
+  } | null>
+  triggerReanalyzeRecent: (days: number) => Promise<{
     status: string
     total: number
     succeeded: number
@@ -30,6 +37,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
   const [analyzingDate, setAnalyzingDate] = useState<string | null>(null)
   const [backfilling, setBackfilling] = useState(false)
+  const [reanalyzing, setReanalyzing] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generatingLabel, setGeneratingLabel] = useState<string | null>(null)
 
@@ -89,6 +97,21 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     }
   }, [notifyComplete])
 
+  const triggerReanalyzeRecent = useCallback(
+    async (days: number) => {
+      setReanalyzing(true)
+      setAnalysisProgress(null)
+      try {
+        return await window.api.reanalyzeRecent(days)
+      } finally {
+        setReanalyzing(false)
+        setAnalysisProgress(null)
+        notifyComplete()
+      }
+    },
+    [notifyComplete]
+  )
+
   const triggerPeriodicSummary = useCallback(
     async (periodLabel: string) => {
       setGenerating(true)
@@ -111,10 +134,12 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
         analysisProgress,
         analyzingDate,
         backfilling,
+        reanalyzing,
         generating,
         generatingLabel,
         triggerAnalysis,
         triggerBackfillAnalysis,
+        triggerReanalyzeRecent,
         triggerPeriodicSummary,
         onAnalysisComplete
       }}
