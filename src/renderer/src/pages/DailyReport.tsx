@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { DatePicker } from '../components/DatePicker'
 import { WorkItemList } from '../components/WorkItemList'
 import { PageHeader } from '../components/PageHeader'
@@ -10,24 +10,33 @@ import { useAnalysis } from '../contexts/AnalysisContext'
 import { formatDateLabel, localDateString } from '../lib/date'
 import type { DailyAnalysisResult, DailyAnalysis } from '../../../shared/types/database'
 
+/** 批量补算的范围选项：days 为 null 表示全部历史 */
+const RERUN_RANGES: { label: string; days: number | null; hint: string }[] = [
+  { label: '最近 7 天', days: 7, hint: '只处理最近一周' },
+  { label: '最近 30 天', days: 30, hint: '只处理最近一个月' },
+  { label: '全部历史', days: null, hint: '所有有截图的日期' }
+]
+
 export function DailyReport(): React.JSX.Element {
   const [selectedDate, setSelectedDate] = useState(localDateString)
   const [analysis, setAnalysis] = useState<DailyAnalysis | null>(null)
   const [allAnalyses, setAllAnalyses] = useState<DailyAnalysis[]>([])
   const [loading, setLoading] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [runningRange, setRunningRange] = useState<string | null>(null)
   const [batchResult, setBatchResult] = useState<{
     label: string
     total: number
     succeeded: number
+    filled: number
   } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const {
     analyzing,
     analysisProgress,
-    backfilling,
-    reanalyzing,
+    rerunning,
     triggerAnalysis,
-    triggerBackfillAnalysis,
-    triggerReanalyzeRecent,
+    triggerRerun,
     onAnalysisComplete
   } = useAnalysis()
 
@@ -45,6 +54,25 @@ export function DailyReport(): React.JSX.Element {
   useEffect(() => {
     loadAnalysis(selectedDate)
   }, [selectedDate])
+
+  // 范围菜单：点外面或按 Esc 关闭
+  useEffect(() => {
+    if (!menuOpen) return
+
+    function handlePointerDown(event: MouseEvent): void {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false)
+    }
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [menuOpen])
 
   async function loadAllAnalyses(): Promise<void> {
     try {
@@ -73,23 +101,30 @@ export function DailyReport(): React.JSX.Element {
 
   async function runBatch(
     label: string,
-    task: () => Promise<{ total: number; succeeded: number } | null>
+    task: () => Promise<{ total: number; succeeded: number; filled: number } | null>
   ): Promise<void> {
     setBatchResult(null)
     const result = await task()
     if (result) {
-      setBatchResult({ label, total: result.total, succeeded: result.succeeded })
+      setBatchResult({
+        label,
+        total: result.total,
+        succeeded: result.succeeded,
+        filled: result.filled
+      })
     }
     loadAllAnalyses()
     loadAnalysis(selectedDate)
   }
 
-  function handleBackfill(): void {
-    void runBatch('补偿分析', triggerBackfillAnalysis)
-  }
-
-  function handleReanalyze(): void {
-    void runBatch('重算最近 7 天', () => triggerReanalyzeRecent(7))
+  async function handleRerun(days: number | null, label: string): Promise<void> {
+    setMenuOpen(false)
+    setRunningRange(label)
+    try {
+      await runBatch(`批量补算（${label}）`, () => triggerRerun(days))
+    } finally {
+      setRunningRange(null)
+    }
   }
 
   let analysisResult: DailyAnalysisResult | null = null
@@ -109,42 +144,54 @@ export function DailyReport(): React.JSX.Element {
       ? [analysisResult.summary]
       : []
 
-  const batchBusy = backfilling || reanalyzing
+  const batchBusy = rerunning
+  const analyzedDates = useMemo(() => new Set(allAnalyses.map((item) => item.date)), [allAnalyses])
 
   return (
     <div>
       <PageHeader
         title="日报"
-        description="查看任意日期的工作总结，缺失的日期可以补算"
+        description="查看任意日期的工作总结，缺失的日期可以批量补算"
         actions={
-          <>
+          <div className="menu-anchor" ref={menuRef}>
             <button
               type="button"
               className="button button-secondary"
-              onClick={handleBackfill}
+              onClick={() => setMenuOpen((open) => !open)}
               disabled={batchBusy || analyzing}
-              title="为有记录但没有分析结果的日期补做分析"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              title="批量处理历史日报：缺失的补上，已有的覆盖重写（不含今天）"
             >
               <Icon name="history" size={15} />
-              {backfilling ? '补偿中…' : '补偿分析'}
+              {rerunning ? '批量补算中…' : '批量补算'}
+              <Icon name="chevron-down" size={14} className={menuOpen ? 'icon-flip' : undefined} />
             </button>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={handleReanalyze}
-              disabled={batchBusy || analyzing}
-              title="重新分析最近 7 天的数据"
-            >
-              <Icon name="refresh" size={15} />
-              {reanalyzing ? '重算中…' : '重算 7 天'}
-            </button>
-          </>
+            {menuOpen && (
+              <div className="menu" role="menu">
+                <p className="menu-title">处理范围（不含今天）</p>
+                {RERUN_RANGES.map((range) => (
+                  <button
+                    type="button"
+                    key={range.label}
+                    role="menuitem"
+                    className="menu-item"
+                    onClick={() => void handleRerun(range.days, range.label)}
+                  >
+                    <span className="menu-item-label">{range.label}</span>
+                    <span className="menu-item-hint">{range.hint}</span>
+                  </button>
+                ))}
+                <p className="menu-note">缺失的补上，已有的覆盖重写</p>
+              </div>
+            )}
+          </div>
         }
       />
 
       <section className="card toolbar-card">
         <div className="toolbar">
-          <DatePicker value={selectedDate} onChange={setSelectedDate} />
+          <DatePicker value={selectedDate} onChange={setSelectedDate} markedDates={analyzedDates} />
           {allAnalyses.length > 0 && (
             <>
               <span className="toolbar-divider" aria-hidden="true" />
@@ -178,8 +225,10 @@ export function DailyReport(): React.JSX.Element {
           }
         >
           {batchResult.total === 0
-            ? `${batchResult.label}：没有需要处理的日期`
-            : `${batchResult.label}完成：共 ${batchResult.total} 天，成功 ${batchResult.succeeded} 天${
+            ? `${batchResult.label}：今天之前没有需要处理的日期`
+            : `${batchResult.label}完成：共 ${batchResult.total} 天（补算 ${batchResult.filled} 天，重写 ${
+                batchResult.total - batchResult.filled
+              } 天），成功 ${batchResult.succeeded} 天${
                 batchResult.succeeded < batchResult.total
                   ? `，失败 ${batchResult.total - batchResult.succeeded} 天`
                   : ''
@@ -189,7 +238,7 @@ export function DailyReport(): React.JSX.Element {
 
       {batchBusy && (
         <ProgressPanel
-          label={reanalyzing ? '正在重算最近 7 天' : '正在补偿分析'}
+          label={runningRange ? `正在批量补算（${runningRange}）` : '正在批量补算'}
           progress={analysisProgress}
         />
       )}
@@ -235,7 +284,7 @@ export function DailyReport(): React.JSX.Element {
         <EmptyState
           icon="calendar"
           title={`${formatDateLabel(selectedDate)} 暂无分析`}
-          description="这一天还没有生成日报，可以直接分析现有记录，或用右上角「补偿分析」批量补齐"
+          description="这一天还没有生成日报，可以直接分析现有记录，或用右上角「批量补算」补齐"
           action={
             <button
               type="button"

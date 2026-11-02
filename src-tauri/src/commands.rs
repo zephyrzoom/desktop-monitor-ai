@@ -135,36 +135,26 @@ pub async fn analysis_trigger(
 }
 
 #[tauri::command]
-pub async fn analysis_backfill(runtime: State<'_, Arc<Runtime>>) -> Result<Value, String> {
-    let runtime = runtime.inner().clone();
-
-    if !runtime.try_begin_analysis() {
-        logger::warn("已有分析任务在执行，忽略本次补偿分析");
-        return Ok(json!({ "status": "busy", "total": 0, "succeeded": 0 }));
-    }
-
-    let (total, succeeded) = analyzer::backfill_all(&runtime).await;
-    runtime.end_analysis();
-
-    Ok(json!({ "status": "completed", "total": total, "succeeded": succeeded }))
-}
-
-#[tauri::command]
-pub async fn analysis_reanalyze_recent(
+pub async fn analysis_rerun(
     runtime: State<'_, Arc<Runtime>>,
-    days: i64,
+    days: Option<i64>,
 ) -> Result<Value, String> {
     let runtime = runtime.inner().clone();
 
     if !runtime.try_begin_analysis() {
-        logger::warn("已有分析任务在执行，忽略本次重算");
-        return Ok(json!({ "status": "busy", "total": 0, "succeeded": 0 }));
+        logger::warn("已有分析任务在执行，忽略本次批量补算");
+        return Ok(json!({ "status": "busy", "total": 0, "succeeded": 0, "filled": 0 }));
     }
 
-    let (total, succeeded) = analyzer::reanalyze_recent(&runtime, days).await;
+    let outcome = analyzer::rerun_daily(&runtime, days).await;
     runtime.end_analysis();
 
-    Ok(json!({ "status": "completed", "total": total, "succeeded": succeeded }))
+    Ok(json!({
+        "status": "completed",
+        "total": outcome.total,
+        "succeeded": outcome.succeeded,
+        "filled": outcome.filled
+    }))
 }
 
 #[tauri::command]

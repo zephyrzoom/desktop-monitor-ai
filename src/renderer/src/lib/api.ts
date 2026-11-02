@@ -12,10 +12,12 @@ export interface AnalysisProgressPayload {
   total: number
 }
 
-export interface BackfillResult {
+export interface RerunResult {
   status: string
   total: number
   succeeded: number
+  /** 其中原本没有日报、本次补上的天数（其余为覆盖重写） */
+  filled: number
 }
 
 /**
@@ -59,9 +61,8 @@ export const api = {
   // AI 分析
   triggerAnalysis: (date: string) =>
     invoke<{ status: string; date: string }>('analysis_trigger', { date }),
-  triggerBackfillAnalysis: () => invoke<BackfillResult>('analysis_backfill'),
-  reanalyzeRecent: (days: number) =>
-    invoke<BackfillResult>('analysis_reanalyze_recent', { days }),
+  /** 批量补算/重算：days 为 null 表示全部历史；范围内缺失的补上、已有的覆盖 */
+  rerunAnalysis: (days: number | null) => invoke<RerunResult>('analysis_rerun', { days }),
   triggerPeriodicSummary: (periodLabel: string) =>
     invoke<{ status: string; periodLabel: string }>('summary_trigger', { periodLabel }),
   onAnalysisProgress: (callback: (progress: AnalysisProgressPayload) => void) =>

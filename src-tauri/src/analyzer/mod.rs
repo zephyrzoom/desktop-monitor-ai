@@ -819,15 +819,57 @@ async fn backfill_range(rt: &Arc<Runtime>, start: &str, end: &str) {
     emit_progress(rt, "补生成完成", missing.len(), missing.len());
 }
 
-/// 手动补偿分析：补生成所有有截图数据但尚未生成日报的日期。
-pub async fn backfill_all(rt: &Arc<Runtime>) -> (usize, usize) {
-    let dates = match rt.db.all_dates_with_screenshots() {
+/// 批量补算/重算的结果。
+pub struct RerunOutcome {
+    /// 参与处理的日期数
+    pub total: usize,
+    /// 成功生成日报的日期数
+    pub succeeded: usize,
+    /// 其中原本没有日报、本次补上的日期数（其余为覆盖重写）
+    pub filled: usize,
+}
+
+/// 批量补算/重算日报。
+///
+/// - `days = Some(n)`：只看今天之前的最近 n 天；`None`：全部有截图的历史日期。
+/// - 范围内「有截图」的日期都会被处理：缺失日报的直接补上，已有日报的覆盖重写。
+/// - 始终排除今天：当天数据还没结束，提前生成只会留下一条内容残缺的日报。
+pub async fn rerun_daily(rt: &Arc<Runtime>, days: Option<i64>) -> RerunOutcome {
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let yesterday = add_days(&today, -1);
+
+    let queried = match days {
+        Some(days) => {
+            let start = add_days(&today, -days.max(1));
+            rt.db.dates_with_screenshots_in_range(&start, &yesterday)
+        }
+        None => rt.db.all_dates_with_screenshots(),
+    };
+
+    let mut dates = match queried {
         Ok(dates) => dates,
         Err(err) => {
-            logger::error(format!("查询截图日期失败：{err}"));
-            return (0, 0);
+            logger::error(format!("查询待处理日期失败：{err}"));
+            return RerunOutcome {
+                total: 0,
+                succeeded: 0,
+                filled: 0,
+            };
         }
     };
+
+    dates.retain(|date| date.as_str() < today.as_str());
+    dates.sort();
+    dates.dedup();
+
+    if dates.is_empty() {
+        emit_progress(rt, "没有需要处理的日期", 0, 0);
+        return RerunOutcome {
+            total: 0,
+            succeeded: 0,
+            filled: 0,
+        };
+    }
 
     let existing: HashSet<String> = rt
         .db
@@ -837,100 +879,57 @@ pub async fn backfill_all(rt: &Arc<Runtime>) -> (usize, usize) {
         .map(|record| record.date)
         .collect();
 
-    let missing = dates
-        .into_iter()
-        .filter(|date| !existing.contains(date))
-        .collect::<Vec<String>>();
+    let total = dates.len();
+    let filled = dates
+        .iter()
+        .filter(|date| !existing.contains(*date))
+        .count();
 
-    if missing.is_empty() {
-        emit_progress(rt, "没有需要补偿分析的日期", 0, 0);
-        return (0, 0);
-    }
+    logger::info(format!(
+        "[AnalysisScheduler] 开始处理 {} 天日报（补算 {filled} 天，重写 {} 天）: {}",
+        total,
+        total - filled,
+        dates.join(", ")
+    ));
 
-    let total = missing.len();
     let mut succeeded = 0;
-
-    for (index, date) in missing.iter().enumerate() {
-        emit_progress(rt, format!("正在补偿分析 {date}"), index + 1, total);
+    for (index, date) in dates.iter().enumerate() {
+        let action = if existing.contains(date) { "重算" } else { "补算" };
+        emit_progress(rt, format!("正在{action} {date}"), index + 1, total);
         match analyze_daily(rt, date).await {
             Ok(Some(_)) => {
                 succeeded += 1;
                 rt.emit("analysis:result", date.clone());
             }
             Ok(None) => {}
-            Err(err) => logger::error(format!("补偿分析 {date} 失败：{err}")),
+            Err(err) => logger::error(format!("{action} {date} 失败：{err}")),
         }
     }
 
-    emit_progress(rt, "补偿分析完成", total, total);
+    emit_progress(rt, "补算完成", total, total);
     logger::info(format!(
-        "[AnalysisScheduler] 补偿分析完成: {succeeded}/{total} 成功"
+        "[AnalysisScheduler] 补算完成: {succeeded}/{total} 成功（补算 {filled} 天，重写 {} 天）",
+        total - filled
     ));
 
-    (total, succeeded)
+    RerunOutcome {
+        total,
+        succeeded,
+        filled,
+    }
 }
 
 /// 定时任务要总结的日期。
 ///
 /// 凌晨（06:00 前）触发时总结「昨天」：那一刻今天才刚开始，只有 0 点后的零星截图，
 /// 直接分析今天会生成一条从 00:00 起、内容残缺的日报，而且因为日报已存在，
-/// 第二天也不会被补偿分析重算，于是每天都留着一条错误的凌晨日报。
+/// 第二天的批量补算也只会覆盖它而不是重头分析，于是每天都留着一条错误的凌晨日报。
 fn scheduled_target_date(now: DateTime<Local>) -> String {
     if now.hour() < 6 {
         date_string(now.date_naive() - ChronoDuration::days(1))
     } else {
         now.format("%Y-%m-%d").to_string()
     }
-}
-
-/// 重算最近 `days` 天内「已有日报」的日期。
-///
-/// 用于修正历史上按错误时区、或按残缺当日数据生成的日报；今天不重算（数据还没结束）。
-pub async fn reanalyze_recent(rt: &Arc<Runtime>, days: i64) -> (usize, usize) {
-    let today = Local::now().format("%Y-%m-%d").to_string();
-    let start = add_days(&today, -(days.max(1) - 1));
-
-    let mut dates = match rt.db.dates_with_screenshots_in_range(&start, &today) {
-        Ok(dates) => dates,
-        Err(err) => {
-            logger::error(format!("查询待重算日期失败：{err}"));
-            return (0, 0);
-        }
-    };
-    dates.retain(|date| date != &today);
-    dates.sort();
-
-    let total = dates.len();
-    if total == 0 {
-        emit_progress(rt, "没有需要重算的日期", 0, 0);
-        return (0, 0);
-    }
-
-    logger::info(format!(
-        "[AnalysisScheduler] 开始重算 {} 天日报: {}",
-        total,
-        dates.join(", ")
-    ));
-
-    let mut succeeded = 0;
-    for (index, date) in dates.iter().enumerate() {
-        emit_progress(rt, format!("正在重算 {date}"), index + 1, total);
-        match analyze_daily(rt, date).await {
-            Ok(Some(_)) => {
-                succeeded += 1;
-                rt.emit("analysis:result", date.clone());
-            }
-            Ok(None) => {}
-            Err(err) => logger::error(format!("重算 {date} 失败：{err}")),
-        }
-    }
-
-    emit_progress(rt, "重算完成", total, total);
-    logger::info(format!(
-        "[AnalysisScheduler] 重算完成: {succeeded}/{total} 成功"
-    ));
-
-    (total, succeeded)
 }
 
 async fn run_scheduled(rt: Arc<Runtime>) {

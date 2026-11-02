@@ -6,24 +6,19 @@ interface AnalysisContextValue {
   analyzing: boolean
   analysisProgress: AnalysisProgress | null
   analyzingDate: string | null
-  // Backfill state
-  backfilling: boolean
-  // Reanalyze state
-  reanalyzing: boolean
+  // 批量补算/重算 state
+  rerunning: boolean
   // Periodic summary state
   generating: boolean
   generatingLabel: string | null
   // Actions
   triggerAnalysis: (date: string) => Promise<void>
-  triggerBackfillAnalysis: () => Promise<{
+  /** days 为 null 表示全部历史；范围内缺失的补上、已有的覆盖，始终不含今天 */
+  triggerRerun: (days: number | null) => Promise<{
     status: string
     total: number
     succeeded: number
-  } | null>
-  triggerReanalyzeRecent: (days: number) => Promise<{
-    status: string
-    total: number
-    succeeded: number
+    filled: number
   } | null>
   triggerPeriodicSummary: (periodLabel: string) => Promise<void>
   // Completion callback registration
@@ -36,8 +31,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
   const [analyzingDate, setAnalyzingDate] = useState<string | null>(null)
-  const [backfilling, setBackfilling] = useState(false)
-  const [reanalyzing, setReanalyzing] = useState(false)
+  const [rerunning, setRerunning] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generatingLabel, setGeneratingLabel] = useState<string | null>(null)
 
@@ -85,26 +79,14 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     [notifyComplete]
   )
 
-  const triggerBackfillAnalysis = useCallback(async () => {
-    setBackfilling(true)
-    setAnalysisProgress(null)
-    try {
-      return await window.api.triggerBackfillAnalysis()
-    } finally {
-      setBackfilling(false)
-      setAnalysisProgress(null)
-      notifyComplete()
-    }
-  }, [notifyComplete])
-
-  const triggerReanalyzeRecent = useCallback(
-    async (days: number) => {
-      setReanalyzing(true)
+  const triggerRerun = useCallback(
+    async (days: number | null) => {
+      setRerunning(true)
       setAnalysisProgress(null)
       try {
-        return await window.api.reanalyzeRecent(days)
+        return await window.api.rerunAnalysis(days)
       } finally {
-        setReanalyzing(false)
+        setRerunning(false)
         setAnalysisProgress(null)
         notifyComplete()
       }
@@ -133,13 +115,11 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
         analyzing,
         analysisProgress,
         analyzingDate,
-        backfilling,
-        reanalyzing,
+        rerunning,
         generating,
         generatingLabel,
         triggerAnalysis,
-        triggerBackfillAnalysis,
-        triggerReanalyzeRecent,
+        triggerRerun,
         triggerPeriodicSummary,
         onAnalysisComplete
       }}

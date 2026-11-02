@@ -28,6 +28,7 @@ export type IconName =
   | 'folder'
   | 'save'
   | 'chevron-down'
+  | 'chevron-left'
   | 'chevron-right'
   | 'refresh'
   | 'history'
@@ -136,6 +137,7 @@ const icons: Record<IconName, React.ReactNode> = {
     </>
   ),
   'chevron-down': <path d="m6 9.5 6 6 6-6" />,
+  'chevron-left': <path d="m15 6-6 6 6 6" />,
   'chevron-right': <path d="m9.5 6 6 6-6 6" />,
   refresh: (
     <>
