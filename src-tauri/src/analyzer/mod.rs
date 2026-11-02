@@ -689,28 +689,12 @@ fn normalize_periodic(value: &Value) -> Option<Value> {
     let highlights = value.get("highlights")?.as_array()?;
     let summary = value.get("summary")?.as_str()?;
 
-    let categories = value
-        .get("work_categories")
-        .and_then(|list| list.as_array())
-        .map(|list| {
-            list.iter()
-                .map(|item| {
-                    json!({
-                        "category": item.get("category").and_then(|v| v.as_str()).unwrap_or(""),
-                        "percentage": item.get("percentage").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                    })
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-
     Some(json!({
         "period": value.get("period").and_then(|v| v.as_str()).unwrap_or(""),
         "highlights": highlights.iter().map(|item| match item {
             Value::String(text) => text.clone(),
             other => other.to_string(),
         }).collect::<Vec<_>>(),
-        "work_categories": categories,
         "problems": string_list(value.get("problems")),
         "improvements": string_list(value.get("improvements")),
         "summary": summary,

@@ -328,9 +328,8 @@ task_memory (独立存储，按 status + last_active_date 查询)
 {
   "period": "2026-Q2",
   "highlights": ["完成重要项目", "多次技术评审"],
-  "work_categories": [
-    {"category": "编程开发", "percentage": 45}
-  ],
+  "problems": ["多任务并行时优先级判断不够清晰"],
+  "improvements": ["每周一梳理本周关键目标并按优先级排序"],
   "summary": "本季度主要工作集中在..."
 }
 ```

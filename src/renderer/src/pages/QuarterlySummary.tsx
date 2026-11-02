@@ -8,7 +8,6 @@ import { Icon } from '../components/Icon'
 import { useAnalysis } from '../contexts/AnalysisContext'
 import { currentQuarterLabel } from '../lib/date'
 import {
-  buildQuarterlyCategoryText,
   buildQuarterlyFullText,
   buildQuarterlyHighlightsText,
   buildQuarterlyImprovementsText,
@@ -181,35 +180,6 @@ export function QuarterlySummary(): React.JSX.Element {
                   <li key={index}>{highlight}</li>
                 ))}
               </ul>
-            </section>
-          )}
-
-          {summaryResult.work_categories.length > 0 && (
-            <section className="card">
-              <div className="card-header">
-                <h3 className="card-title">
-                  <Icon name="pie" size={15} />
-                  工作分类占比
-                </h3>
-                <CopyIconButton
-                  text={buildQuarterlyCategoryText(summaryResult)}
-                  title="复制工作分类统计"
-                />
-              </div>
-              <div className="category-list">
-                {summaryResult.work_categories.map((cat, index) => (
-                  <div className="category-row" key={`${cat.category}-${index}`}>
-                    <span className="category-name">{cat.category}</span>
-                    <span className="usage-track">
-                      <span
-                        className="usage-fill"
-                        style={{ width: `${Math.min(100, Math.max(2, cat.percentage))}%` }}
-                      />
-                    </span>
-                    <span className="category-value">{cat.percentage}%</span>
-                  </div>
-                ))}
-              </div>
             </section>
           )}
 

@@ -70,7 +70,6 @@ export interface DailyAnalysisResult {
 export interface PeriodicSummaryResult {
   period: string
   highlights: string[]
-  work_categories: { category: string; percentage: number }[]
   /** 工作中存在的主要问题和不足 */
   problems?: string[]
   /** 下一步的改进计划 */

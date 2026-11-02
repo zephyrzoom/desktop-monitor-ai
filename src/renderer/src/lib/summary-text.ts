@@ -36,14 +36,6 @@ export function buildQuarterlyHighlightsText(result: PeriodicSummaryResult): str
   return highlights.length > 0 ? `【工作亮点】\n${numberedList(highlights)}` : ''
 }
 
-/** 单节：工作分类统计 */
-export function buildQuarterlyCategoryText(result: PeriodicSummaryResult): string {
-  const lines = (result.work_categories || [])
-    .filter((cat) => cat && cat.category)
-    .map((cat) => `- ${cat.category}：${cat.percentage}%`)
-  return lines.length > 0 ? `【工作分类统计】\n${lines.join('\n')}` : ''
-}
-
 /** 单节：工作中存在的主要问题和不足 */
 export function buildQuarterlyProblemsText(result: PeriodicSummaryResult): string {
   const problems = result.problems || []
@@ -66,7 +58,6 @@ export function buildQuarterlyFullText(label: string, result: PeriodicSummaryRes
     `${formatQuarterLabel(label)}工作汇总`,
     buildQuarterlyOverviewText(result),
     buildQuarterlyHighlightsText(result),
-    buildQuarterlyCategoryText(result),
     buildQuarterlyProblemsText(result),
     buildQuarterlyImprovementsText(result)
   ].filter(Boolean)
