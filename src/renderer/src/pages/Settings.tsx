@@ -584,10 +584,6 @@ export function Settings(): React.JSX.Element {
               </span>
             </div>
           ))}
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-            每次打包会自动递增版本号并同步到安装包（package.json / tauri.conf.json /
-            Cargo.toml），手动指定可用 npm run bump minor
-          </span>
         </div>
       </div>
 
