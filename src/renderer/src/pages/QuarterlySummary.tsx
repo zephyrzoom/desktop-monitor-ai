@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
-import { CopyButton } from '../components/CopyButton'
+import { CopyButton, CopyIconButton } from '../components/CopyButton'
 import { useAnalysis } from '../contexts/AnalysisContext'
-import { buildQuarterlySummaryText } from '../lib/summary-text'
+import {
+  buildQuarterlyCategoryText,
+  buildQuarterlyFullText,
+  buildQuarterlyHighlightsText,
+  buildQuarterlyOverviewText
+} from '../lib/summary-text'
 import type { PeriodicSummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
 export function QuarterlySummary(): React.JSX.Element {
@@ -71,7 +76,7 @@ export function QuarterlySummary(): React.JSX.Element {
   })()
 
   const copyContent = summaryResult
-    ? buildQuarterlySummaryText(selectedQuarter || summaryResult.period || '', summaryResult)
+    ? buildQuarterlyFullText(selectedQuarter || summaryResult.period || '', summaryResult)
     : ''
 
   return (
@@ -112,13 +117,20 @@ export function QuarterlySummary(): React.JSX.Element {
         <div className="loading">加载中...</div>
       ) : summaryResult ? (
         <>
-          <div className="summary-box">
+          <div className="summary-box has-copy">
+            <CopyIconButton text={buildQuarterlyOverviewText(summaryResult)} title="复制概述" />
             <p>{summaryResult.summary}</p>
           </div>
 
           {summaryResult.highlights.length > 0 && (
             <div className="card">
-              <div className="card-title">工作亮点</div>
+              <div className="card-title">
+                <span>工作亮点</span>
+                <CopyIconButton
+                  text={buildQuarterlyHighlightsText(summaryResult)}
+                  title="复制工作亮点"
+                />
+              </div>
               <ul style={{ paddingLeft: '20px' }}>
                 {summaryResult.highlights.map((highlight, index) => (
                   <li key={index} style={{ marginBottom: '8px' }}>
@@ -131,7 +143,13 @@ export function QuarterlySummary(): React.JSX.Element {
 
           {summaryResult.work_categories.length > 0 && (
             <div className="card">
-              <div className="card-title">工作分类统计</div>
+              <div className="card-title">
+                <span>工作分类统计</span>
+                <CopyIconButton
+                  text={buildQuarterlyCategoryText(summaryResult)}
+                  title="复制工作分类统计"
+                />
+              </div>
               {summaryResult.work_categories.map((cat, index) => (
                 <div
                   key={index}

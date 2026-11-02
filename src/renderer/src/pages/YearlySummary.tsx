@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
-import { CopyButton } from '../components/CopyButton'
+import { CopyButton, CopyIconButton } from '../components/CopyButton'
 import { useAnalysis } from '../contexts/AnalysisContext'
-import { buildYearlySummaryText } from '../lib/summary-text'
+import {
+  buildYearlyCategoryText,
+  buildYearlyConclusionText,
+  buildYearlyFullText,
+  buildYearlyOpeningText
+} from '../lib/summary-text'
 import type { YearlySummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
 export function YearlySummary(): React.JSX.Element {
@@ -71,7 +76,7 @@ export function YearlySummary(): React.JSX.Element {
   })()
 
   const copyContent = summaryResult
-    ? buildYearlySummaryText(selectedYear || summaryResult.period || '', summaryResult)
+    ? buildYearlyFullText(selectedYear || summaryResult.period || '', summaryResult)
     : ''
 
   const categoryNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
@@ -114,14 +119,21 @@ export function YearlySummary(): React.JSX.Element {
         <div className="loading">加载中...</div>
       ) : summaryResult ? (
         <>
-          <div className="summary-box">
+          <div className="summary-box has-copy">
+            <CopyIconButton text={buildYearlyOpeningText(summaryResult)} title="复制开头语" />
             <p>{summaryResult.opening}</p>
           </div>
 
           {summaryResult.categories.map((category, catIndex) => (
             <div className="card" key={catIndex} style={{ marginBottom: '16px' }}>
               <div className="card-title">
-                {categoryNumbers[catIndex] || catIndex + 1}、{category.title}
+                <span>
+                  {categoryNumbers[catIndex] || catIndex + 1}、{category.title}
+                </span>
+                <CopyIconButton
+                  text={buildYearlyCategoryText(category, catIndex)}
+                  title={`复制「${category.title || catIndex + 1}」`}
+                />
               </div>
               {(category.items || []).map((item, itemIndex) => (
                 <div key={itemIndex} style={{ marginBottom: '16px', paddingLeft: '8px' }}>
@@ -136,7 +148,8 @@ export function YearlySummary(): React.JSX.Element {
             </div>
           ))}
 
-          <div className="summary-box">
+          <div className="summary-box has-copy">
+            <CopyIconButton text={buildYearlyConclusionText(summaryResult)} title="复制总结" />
             <p>{summaryResult.summary}</p>
           </div>
         </>

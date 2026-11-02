@@ -1,4 +1,8 @@
-import type { PeriodicSummaryResult, YearlySummaryResult } from '../../../shared/types/database'
+import type {
+  PeriodicSummaryResult,
+  YearlyCategory,
+  YearlySummaryResult
+} from '../../../shared/types/database'
 
 const CHINESE_NUMBERS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
 
@@ -19,43 +23,71 @@ function numberedList(items: string[]): string {
   return items.map((item, index) => `${index + 1}. ${item}`).join('\n')
 }
 
-/** 季度汇总 → 可直接粘贴的纯文本 */
-export function buildQuarterlySummaryText(label: string, result: PeriodicSummaryResult): string {
-  const blocks: string[] = [`${formatQuarterLabel(label)}工作汇总`, `【概述】\n${result.summary}`]
+/* ------------------------------- 季度 ------------------------------- */
 
-  if (result.highlights.length > 0) {
-    blocks.push(`【工作亮点】\n${numberedList(result.highlights)}`)
-  }
+/** 单节：概述 */
+export function buildQuarterlyOverviewText(result: PeriodicSummaryResult): string {
+  return result.summary ? `【概述】\n${result.summary}` : ''
+}
 
-  const categories = (result.work_categories || []).filter((cat) => cat && cat.category)
-  if (categories.length > 0) {
-    const lines = categories.map((cat) => `- ${cat.category}：${cat.percentage}%`)
-    blocks.push(`【工作分类统计】\n${lines.join('\n')}`)
-  }
+/** 单节：工作亮点 */
+export function buildQuarterlyHighlightsText(result: PeriodicSummaryResult): string {
+  const highlights = result.highlights || []
+  return highlights.length > 0 ? `【工作亮点】\n${numberedList(highlights)}` : ''
+}
 
+/** 单节：工作分类统计 */
+export function buildQuarterlyCategoryText(result: PeriodicSummaryResult): string {
+  const lines = (result.work_categories || [])
+    .filter((cat) => cat && cat.category)
+    .map((cat) => `- ${cat.category}：${cat.percentage}%`)
+  return lines.length > 0 ? `【工作分类统计】\n${lines.join('\n')}` : ''
+}
+
+/** 整篇季度汇总 */
+export function buildQuarterlyFullText(label: string, result: PeriodicSummaryResult): string {
+  const blocks = [
+    `${formatQuarterLabel(label)}工作汇总`,
+    buildQuarterlyOverviewText(result),
+    buildQuarterlyHighlightsText(result),
+    buildQuarterlyCategoryText(result)
+  ].filter(Boolean)
   return blocks.join('\n\n')
 }
 
-/** 年度汇总 → 可直接粘贴的纯文本 */
-export function buildYearlySummaryText(label: string, result: YearlySummaryResult): string {
-  const title = `${formatYearLabel(label)}年度工作总结`.replace(/\s+/g, ' ')
-  const blocks: string[] = [title]
+/* ------------------------------- 年度 ------------------------------- */
 
-  if (result.opening) {
-    blocks.push(result.opening)
-  }
+/** 单节：开头语 */
+export function buildYearlyOpeningText(result: YearlySummaryResult): string {
+  return result.opening || ''
+}
 
-  ;(result.categories || []).forEach((category, catIndex) => {
-    const heading = `${CHINESE_NUMBERS[catIndex] || catIndex + 1}、${category.title}`
-    const items = (category.items || [])
-      .map((item, itemIndex) => `${itemIndex + 1}）${item.subtitle}\n${item.description}`.trim())
-      .join('\n\n')
-    blocks.push(items ? `${heading}\n\n${items}` : heading)
-  })
+/** 单节：某个分类（含「一、」标题与「1）」条目） */
+export function buildYearlyCategoryText(category: YearlyCategory, index: number): string {
+  const heading = `${CHINESE_NUMBERS[index] || index + 1}、${category.title}`
+  const items = (category.items || [])
+    .map((item, itemIndex) => `${itemIndex + 1}）${item.subtitle}\n${item.description}`.trim())
+    .join('\n\n')
+  return items ? `${heading}\n\n${items}` : heading
+}
 
-  if (result.summary) {
-    blocks.push(`【总结】\n${result.summary}`)
-  }
+/** 单节：总结 */
+export function buildYearlyConclusionText(result: YearlySummaryResult): string {
+  return result.summary ? `【总结】\n${result.summary}` : ''
+}
+
+/** 整篇年度汇总 */
+export function buildYearlyFullText(label: string, result: YearlySummaryResult): string {
+  const categoryBlocks = (result.categories || []).map((category, catIndex) =>
+    buildYearlyCategoryText(category, catIndex)
+  )
+
+  const blocks = [
+    `${formatYearLabel(label)}年度工作总结`.replace(/\s+/g, ' '),
+    buildYearlyOpeningText(result),
+    ...categoryBlocks,
+    buildYearlyConclusionText(result)
+  ].filter(Boolean)
 
   return blocks.join('\n\n')
 }
