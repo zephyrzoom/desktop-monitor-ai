@@ -11,7 +11,9 @@ import {
   buildQuarterlyCategoryText,
   buildQuarterlyFullText,
   buildQuarterlyHighlightsText,
-  buildQuarterlyOverviewText
+  buildQuarterlyImprovementsText,
+  buildQuarterlyOverviewText,
+  buildQuarterlyProblemsText
 } from '../lib/summary-text'
 import type { PeriodicSummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
@@ -72,7 +74,12 @@ export function QuarterlySummary(): React.JSX.Element {
     try {
       const parsed = JSON.parse(summary.result_json)
       if (parsed && Array.isArray(parsed.highlights) && parsed.summary) {
-        return parsed as PeriodicSummaryResult
+        // 兼容旧数据：早期生成的汇总没有 problems / improvements 字段
+        return {
+          ...parsed,
+          problems: Array.isArray(parsed.problems) ? parsed.problems : [],
+          improvements: Array.isArray(parsed.improvements) ? parsed.improvements : []
+        } as PeriodicSummaryResult
       }
     } catch {
       return null
@@ -205,12 +212,52 @@ export function QuarterlySummary(): React.JSX.Element {
               </div>
             </section>
           )}
+
+          {(summaryResult.problems?.length ?? 0) > 0 && (
+            <section className="card">
+              <div className="card-header">
+                <h3 className="card-title">
+                  <Icon name="alert" size={15} />
+                  工作中存在的主要问题和不足
+                </h3>
+                <CopyIconButton
+                  text={buildQuarterlyProblemsText(summaryResult)}
+                  title="复制主要问题和不足"
+                />
+              </div>
+              <ul className="bullet-list">
+                {summaryResult.problems?.map((problem, index) => (
+                  <li key={index}>{problem}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {(summaryResult.improvements?.length ?? 0) > 0 && (
+            <section className="card">
+              <div className="card-header">
+                <h3 className="card-title">
+                  <Icon name="target" size={15} />
+                  下一步的改进计划
+                </h3>
+                <CopyIconButton
+                  text={buildQuarterlyImprovementsText(summaryResult)}
+                  title="复制改进计划"
+                />
+              </div>
+              <ul className="bullet-list">
+                {summaryResult.improvements?.map((improvement, index) => (
+                  <li key={index}>{improvement}</li>
+                ))}
+              </ul>
+            </section>
+          )}
         </>
       ) : selectedQuarter ? (
         <EmptyState
           icon="chart"
           title={`${selectedQuarter.replace('-', ' ')} 还没有汇总`}
-          description="生成后会得到季度概述、工作亮点和分类占比，并可一键复制"
+          description="生成后会得到季度概述、工作亮点、分类占比、主要问题与改进计划，并可一键复制"
           action={
             <button
               type="button"

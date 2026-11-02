@@ -660,7 +660,8 @@ async fn generate_periodic(
         prompts::build_periodic_summary_prompt(&pairs, period_type, period_label)
     };
 
-    let max_tokens = if is_year { 4000 } else { 2000 };
+    // 季度汇总包含概述、亮点、分类占比、问题不足与改进计划，输出较长，留足 token
+    let max_tokens = if is_year { 4000 } else { 3000 };
     let label = if is_year {
         "generateYearly"
     } else {
@@ -710,8 +711,33 @@ fn normalize_periodic(value: &Value) -> Option<Value> {
             other => other.to_string(),
         }).collect::<Vec<_>>(),
         "work_categories": categories,
+        "problems": string_list(value.get("problems")),
+        "improvements": string_list(value.get("improvements")),
         "summary": summary,
     }))
+}
+
+/// 把模型返回的字符串数组字段归一化为 `Vec<String>`；缺失或类型异常时返回空数组。
+fn string_list(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(|list| list.as_array())
+        .map(|list| {
+            list.iter()
+                .filter_map(|item| match item {
+                    Value::String(text) => {
+                        let trimmed = text.trim();
+                        if trimmed.is_empty() {
+                            None
+                        } else {
+                            Some(trimmed.to_string())
+                        }
+                    }
+                    Value::Null => None,
+                    other => Some(other.to_string()),
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
 }
 
 fn normalize_yearly(value: &Value) -> Option<Value> {

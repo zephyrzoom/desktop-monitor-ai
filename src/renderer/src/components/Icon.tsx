@@ -39,6 +39,7 @@ export type IconName =
   | 'inbox'
   | 'calendar'
   | 'edit'
+  | 'target'
 
 const icons: Record<IconName, React.ReactNode> = {
   activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
@@ -186,6 +187,13 @@ const icons: Record<IconName, React.ReactNode> = {
     <>
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5l-4 1 1-4z" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.2" />
     </>
   )
 }

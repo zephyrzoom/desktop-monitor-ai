@@ -44,13 +44,31 @@ export function buildQuarterlyCategoryText(result: PeriodicSummaryResult): strin
   return lines.length > 0 ? `【工作分类统计】\n${lines.join('\n')}` : ''
 }
 
+/** 单节：工作中存在的主要问题和不足 */
+export function buildQuarterlyProblemsText(result: PeriodicSummaryResult): string {
+  const problems = result.problems || []
+  return problems.length > 0
+    ? `【工作中存在的主要问题和不足】\n${numberedList(problems)}`
+    : ''
+}
+
+/** 单节：下一步的改进计划 */
+export function buildQuarterlyImprovementsText(result: PeriodicSummaryResult): string {
+  const improvements = result.improvements || []
+  return improvements.length > 0
+    ? `【下一步的改进计划】\n${numberedList(improvements)}`
+    : ''
+}
+
 /** 整篇季度汇总 */
 export function buildQuarterlyFullText(label: string, result: PeriodicSummaryResult): string {
   const blocks = [
     `${formatQuarterLabel(label)}工作汇总`,
     buildQuarterlyOverviewText(result),
     buildQuarterlyHighlightsText(result),
-    buildQuarterlyCategoryText(result)
+    buildQuarterlyCategoryText(result),
+    buildQuarterlyProblemsText(result),
+    buildQuarterlyImprovementsText(result)
   ].filter(Boolean)
   return blocks.join('\n\n')
 }

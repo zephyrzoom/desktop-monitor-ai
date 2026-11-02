@@ -311,12 +311,22 @@ pub fn build_periodic_summary_prompt(
       "percentage": 20
     }}
   ],
+  "problems": [
+    "多任务并行时优先级判断不够清晰，部分工作推进节奏偏慢",
+    "临时性事务打断较多，整块深度工作时间被切碎"
+  ],
+  "improvements": [
+    "每周一梳理本周关键目标并按优先级排序，非关键事项延后处理",
+    "每天预留两段不受打扰的深度工作时间，集中处理核心任务"
+  ],
   "summary": "本{period_name}主要工作集中在..."
 }}
 
 注意:
 - highlights 列出本{period_name}的所有工作亮点，覆盖日报中总结的全部工作内容，不要限制数量
 - work_categories 统计各类工作的时间占比，总和应为 100
+- problems 是「工作中存在的主要问题和不足」，从日报反映的实际情况归纳 2-5 条（如进度滞后、反复返工、沟通协调成本高、投入过于分散、被动响应多、缺少文档沉淀等），要具体、可落地，不要空泛套话，也不要编造日报中不存在的内容
+- improvements 是「下一步的改进计划」，针对 problems 中的每一条给出对应的改进措施，同样 2-5 条，每条都要包含明确的动作（做什么、怎么做），不要只写口号
 - summary 用 2-3 句话概括本{period_name}的整体工作情况"#,
         period_name = period_name,
         period_label = period_label,
