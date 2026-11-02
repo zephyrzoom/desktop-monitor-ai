@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
+import { CopyButton } from '../components/CopyButton'
 import { useAnalysis } from '../contexts/AnalysisContext'
+import { buildYearlySummaryText } from '../lib/summary-text'
 import type { YearlySummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
 export function YearlySummary(): React.JSX.Element {
@@ -55,17 +57,22 @@ export function YearlySummary(): React.JSX.Element {
     triggerPeriodicSummary(selectedYear)
   }
 
-  let summaryResult: YearlySummaryResult | null = null
-  if (summary) {
+  const summaryResult: YearlySummaryResult | null = (() => {
+    if (!summary) return null
     try {
       const parsed = JSON.parse(summary.result_json)
       if (parsed && Array.isArray(parsed.categories) && parsed.opening && parsed.summary) {
-        summaryResult = parsed as YearlySummaryResult
+        return parsed as YearlySummaryResult
       }
     } catch {
-      summaryResult = null
+      return null
     }
-  }
+    return null
+  })()
+
+  const copyContent = summaryResult
+    ? buildYearlySummaryText(selectedYear || summaryResult.period || '', summaryResult)
+    : ''
 
   const categoryNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
 
@@ -94,16 +101,14 @@ export function YearlySummary(): React.JSX.Element {
         </div>
       )}
 
-      {selectedYear && (
-        <button
-          className="button button-primary"
-          onClick={handleGenerate}
-          disabled={generating}
-          style={{ marginBottom: '24px' }}
-        >
-          {generating ? '生成中...' : '生成年度汇总'}
-        </button>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+        {selectedYear && (
+          <button className="button button-primary" onClick={handleGenerate} disabled={generating}>
+            {generating ? '生成中...' : '生成年度汇总'}
+          </button>
+        )}
+        {summaryResult && <CopyButton text={loading ? '' : copyContent} label="复制汇总" />}
+      </div>
 
       {loading ? (
         <div className="loading">加载中...</div>

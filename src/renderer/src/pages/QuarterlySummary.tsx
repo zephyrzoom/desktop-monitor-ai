@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
+import { CopyButton } from '../components/CopyButton'
 import { useAnalysis } from '../contexts/AnalysisContext'
+import { buildQuarterlySummaryText } from '../lib/summary-text'
 import type { PeriodicSummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
 export function QuarterlySummary(): React.JSX.Element {
@@ -55,17 +57,22 @@ export function QuarterlySummary(): React.JSX.Element {
     triggerPeriodicSummary(selectedQuarter)
   }
 
-  let summaryResult: PeriodicSummaryResult | null = null
-  if (summary) {
+  const summaryResult: PeriodicSummaryResult | null = (() => {
+    if (!summary) return null
     try {
       const parsed = JSON.parse(summary.result_json)
       if (parsed && Array.isArray(parsed.highlights) && parsed.summary) {
-        summaryResult = parsed as PeriodicSummaryResult
+        return parsed as PeriodicSummaryResult
       }
     } catch {
-      summaryResult = null
+      return null
     }
-  }
+    return null
+  })()
+
+  const copyContent = summaryResult
+    ? buildQuarterlySummaryText(selectedQuarter || summaryResult.period || '', summaryResult)
+    : ''
 
   return (
     <div>
@@ -92,16 +99,14 @@ export function QuarterlySummary(): React.JSX.Element {
         </div>
       )}
 
-      {selectedQuarter && (
-        <button
-          className="button button-primary"
-          onClick={handleGenerate}
-          disabled={generating}
-          style={{ marginBottom: '24px' }}
-        >
-          {generating ? '生成中...' : '生成季度汇总'}
-        </button>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+        {selectedQuarter && (
+          <button className="button button-primary" onClick={handleGenerate} disabled={generating}>
+            {generating ? '生成中...' : '生成季度汇总'}
+          </button>
+        )}
+        {summaryResult && <CopyButton text={loading ? '' : copyContent} label="复制汇总" />}
+      </div>
 
       {loading ? (
         <div className="loading">加载中...</div>

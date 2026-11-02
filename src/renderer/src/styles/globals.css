@@ -271,6 +271,11 @@ body {
   background-color: var(--border);
 }
 
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .switch {
   position: relative;
   display: inline-block;
