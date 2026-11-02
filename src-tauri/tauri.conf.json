@@ -22,7 +22,7 @@
         "center": true,
         "resizable": true,
         "visible": true,
-        "backgroundColor": "#0f1115"
+        "backgroundColor": "#f6f7f9"
       }
     ],
     "security": {
