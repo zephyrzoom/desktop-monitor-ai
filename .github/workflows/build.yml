@@ -2,11 +2,12 @@ name: Build
 
 on:
   push:
-    # tauri 为 Electron → Tauri 迁移分支，合并进主干后可移除
-    branches: [main, master, tauri]
+    # tauri 为 Electron → Tauri 迁移分支，new-ui 为界面改版分支，合并进主干后可移除
+    branches: [main, master, tauri, new-ui]
     tags: ['v*']
   pull_request:
-    branches: [main, master]
+    # PR 的 base 分支在这里匹配，tauri/new-ui 互提 PR 也能跑构建
+    branches: [main, master, tauri, new-ui]
   workflow_dispatch:
 
 permissions:
