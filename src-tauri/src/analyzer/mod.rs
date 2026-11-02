@@ -1088,9 +1088,7 @@ mod tests {
     use super::*;
 
     fn finished_quarter_of(year: i32, month: u32, day: u32) -> (i32, u32) {
-        last_finished_quarter(
-            NaiveDate::from_ymd_opt(year, month, day).expect("测试日期应当合法"),
-        )
+        last_finished_quarter(NaiveDate::from_ymd_opt(year, month, day).expect("测试日期应当合法"))
     }
 
     #[test]
