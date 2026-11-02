@@ -609,15 +609,15 @@ npm run build        # 编译检查
 ### 10.2 生产构建
 
 ```bash
-npm run build:win    # 打包 Windows 安装版 + 便携版
-npm run build:mac    # 打包 macOS dmg
+npm run build:win    # 打包 Windows 便携版（裸 exe，不打安装包）
+npm run build:linux  # 打包 Linux deb
 ```
 
 ### 10.3 GitHub Actions
 
 自动构建流程:
 1. 推送到 main/master 分支触发构建
-2. 在 Windows 环境编译打包
+2. 在 Windows 环境编译打包（`tauri build --no-bundle`，只出便携版 exe）
 3. 上传 exe 产物
 4. 推送 v* 标签时自动创建 Release
 
@@ -625,8 +625,7 @@ npm run build:mac    # 打包 macOS dmg
 
 | 文件 | 说明 |
 |------|------|
-| desktop-monitor-*-setup.exe | NSIS 安装版 |
-| Desktop Monitor *.exe | 便携版，双击即用 |
+| desktop-monitor-portable.exe | 便携版，双击即用（需系统自带 WebView2） |
 
 ---
 

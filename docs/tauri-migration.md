@@ -22,7 +22,7 @@
 | `powerMonitor`（锁屏 / 挂起 / 空闲） | `user-idle` + 休眠间隔检测 |
 | `openai` SDK | `reqwest` 直连 `/chat/completions` |
 | `electron-vite` | `vite` + `@tauri-apps/cli` |
-| `electron-builder` | `tauri build`（NSIS / deb） |
+| `electron-builder` | `tauri build`（Windows 便携 exe / Linux deb） |
 
 ## IPC 通道对照
 
@@ -74,8 +74,9 @@
 
 - **锁屏事件**：Tauri 没有 `powerMonitor` 的等价物。当前通过「空闲超时」+「轮询间隔异常检测
   （系统休眠/唤醒）」来近似暂停监控；锁屏后会按空闲阈值（默认 5 分钟）后暂停，而不是立即暂停。
-- **Windows 便携版依赖 WebView2**：Win10 1803 及以上默认内置；更老的系统需要单独安装运行时。
-  安装包（NSIS）默认使用 `currentUser` 安装模式，不需要管理员权限。
+- **Windows 只出便携版**：构建走 `tauri build --no-bundle`，产物是 `desktop-monitor.exe`
+  裸可执行文件，不生成 NSIS 安装包。运行依赖系统自带 WebView2
+  （Win10 1803 及以上默认内置；更老的系统需要单独安装运行时）。
 - **macOS 权限**：截图需要「屏幕录制」授权，读取窗口标题需要「辅助功能」授权，首次运行需手动允许。
 
 ## 常用命令
@@ -85,6 +86,6 @@ npm run dev          # tauri dev：Vite + 原生窗口
 npm run rust:check   # cargo check
 npm run build:web    # 只构建前端产物到 dist-renderer/
 npm run build        # 类型检查 + tauri build
-npm run build:win    # Windows NSIS 安装包
+npm run build:win    # Windows 便携版 exe（--no-bundle）
 npm run build:linux  # Linux deb
 ```

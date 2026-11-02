@@ -105,7 +105,7 @@ npm run build:web
 
 # 构建并打包安装包（打包前自动递增 patch 版本号）
 npm run build          # 当前平台默认产物
-npm run build:win      # Windows NSIS 安装包
+npm run build:win      # Windows 便携版 exe（不打安装包）
 npm run build:linux    # Linux deb
 
 # 手动递增版本号，同步写入 package.json / tauri.conf.json / Cargo.toml
