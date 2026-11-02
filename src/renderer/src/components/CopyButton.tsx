@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { copyText } from '../lib/clipboard'
+import { Icon } from './Icon'
 
 type CopyState = 'idle' | 'done' | 'error'
 
@@ -56,45 +57,9 @@ export function CopyButton({
       title={disabled ? '暂无可复制的内容' : '复制汇总内容'}
       aria-live="polite"
     >
+      <Icon name={state === 'done' ? 'check' : 'copy'} size={14} />
       {buttonLabel}
     </button>
-  )
-}
-
-function CopyIcon(): React.JSX.Element {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="9" y="9" width="12" height="12" rx="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  )
-}
-
-function CheckIcon(): React.JSX.Element {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
   )
 }
 
@@ -131,7 +96,11 @@ export function CopyIconButton({
       title={tip}
       aria-label={title}
     >
-      {state === 'done' ? <CheckIcon /> : <CopyIcon />}
+      <Icon
+        name={state === 'done' ? 'check' : 'copy'}
+        size={15}
+        strokeWidth={state === 'done' ? 2.4 : 1.8}
+      />
     </button>
   )
 }

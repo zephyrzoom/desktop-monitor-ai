@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
 import { CopyButton, CopyIconButton } from '../components/CopyButton'
+import { PageHeader } from '../components/PageHeader'
+import { ProgressPanel } from '../components/ProgressPanel'
+import { EmptyState } from '../components/EmptyState'
+import { Icon } from '../components/Icon'
 import { useAnalysis } from '../contexts/AnalysisContext'
+import { currentQuarterLabel } from '../lib/date'
 import {
   buildQuarterlyCategoryText,
   buildQuarterlyFullText,
@@ -11,11 +16,11 @@ import {
 import type { PeriodicSummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
 export function QuarterlySummary(): React.JSX.Element {
-  const [selectedQuarter, setSelectedQuarter] = useState('')
+  const [selectedQuarter, setSelectedQuarter] = useState(currentQuarterLabel)
   const [summary, setSummary] = useState<PeriodicSummary | null>(null)
   const [allSummaries, setAllSummaries] = useState<PeriodicSummary[]>([])
   const [loading, setLoading] = useState(false)
-  const { generating, triggerPeriodicSummary, onAnalysisComplete } = useAnalysis()
+  const { generating, generatingLabel, triggerPeriodicSummary, onAnalysisComplete } = useAnalysis()
 
   useEffect(() => {
     loadAllSummaries()
@@ -81,96 +86,149 @@ export function QuarterlySummary(): React.JSX.Element {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>季度汇总</h2>
-      </div>
+      <PageHeader
+        title="季度汇总"
+        description="按季度聚合工作内容，生成可复制的汇报素材"
+        actions={
+          <>
+            {summaryResult && <CopyButton text={loading ? '' : copyContent} label="复制全文" />}
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={handleGenerate}
+              disabled={!selectedQuarter || generating}
+            >
+              <Icon name="sparkles" size={15} />
+              {generating ? '生成中…' : '生成汇总'}
+            </button>
+          </>
+        }
+      />
 
-      <PeriodSelector type="quarter" value={selectedQuarter} onChange={setSelectedQuarter} />
-
-      {allSummaries.length > 0 && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-title">已生成的季度汇总</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {allSummaries.map((s) => (
-              <button
-                key={s.period_label}
-                className={`button ${s.period_label === selectedQuarter ? 'button-primary' : 'button-secondary'}`}
-                onClick={() => setSelectedQuarter(s.period_label)}
-              >
-                {s.period_label}
-              </button>
-            ))}
-          </div>
+      <section className="card toolbar-card">
+        <div className="toolbar">
+          <PeriodSelector type="quarter" value={selectedQuarter} onChange={setSelectedQuarter} />
+          {allSummaries.length > 0 && (
+            <>
+              <span className="toolbar-divider" aria-hidden="true" />
+              <span className="toolbar-label">已生成</span>
+              <div className="pill-group">
+                {allSummaries.map((s) => (
+                  <button
+                    type="button"
+                    key={s.period_label}
+                    className={`pill${s.period_label === selectedQuarter ? ' active' : ''}`}
+                    onClick={() => setSelectedQuarter(s.period_label)}
+                  >
+                    {s.period_label.replace('-', ' ')}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
+      </section>
+
+      {generating && generatingLabel === selectedQuarter && (
+        <ProgressPanel
+          label={`正在生成 ${generatingLabel ?? selectedQuarter} 季度汇总`}
+          progress={null}
+        />
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-        {selectedQuarter && (
-          <button className="button button-primary" onClick={handleGenerate} disabled={generating}>
-            {generating ? '生成中...' : '生成季度汇总'}
-          </button>
-        )}
-        {summaryResult && <CopyButton text={loading ? '' : copyContent} label="复制汇总" />}
-      </div>
-
       {loading ? (
-        <div className="loading">加载中...</div>
+        <div className="page-loading">
+          <span className="spinner" />
+          加载中…
+        </div>
       ) : summaryResult ? (
         <>
-          <div className="summary-box has-copy">
-            <CopyIconButton text={buildQuarterlyOverviewText(summaryResult)} title="复制概述" />
-            <p>{summaryResult.summary}</p>
-          </div>
+          <section className="card summary-card has-copy">
+            <div className="card-header">
+              <h3 className="card-title">
+                <Icon name="file-text" size={15} />
+                季度概述
+              </h3>
+              <CopyIconButton
+                text={buildQuarterlyOverviewText(summaryResult)}
+                title="复制季度概述"
+              />
+            </div>
+            <p className="summary-text">{summaryResult.summary}</p>
+          </section>
 
           {summaryResult.highlights.length > 0 && (
-            <div className="card">
-              <div className="card-title">
-                <span>工作亮点</span>
+            <section className="card">
+              <div className="card-header">
+                <h3 className="card-title">
+                  <Icon name="trending-up" size={15} />
+                  工作亮点
+                </h3>
                 <CopyIconButton
                   text={buildQuarterlyHighlightsText(summaryResult)}
                   title="复制工作亮点"
                 />
               </div>
-              <ul style={{ paddingLeft: '20px' }}>
+              <ul className="bullet-list">
                 {summaryResult.highlights.map((highlight, index) => (
-                  <li key={index} style={{ marginBottom: '8px' }}>
-                    {highlight}
-                  </li>
+                  <li key={index}>{highlight}</li>
                 ))}
               </ul>
-            </div>
+            </section>
           )}
 
           {summaryResult.work_categories.length > 0 && (
-            <div className="card">
-              <div className="card-title">
-                <span>工作分类统计</span>
+            <section className="card">
+              <div className="card-header">
+                <h3 className="card-title">
+                  <Icon name="pie" size={15} />
+                  工作分类占比
+                </h3>
                 <CopyIconButton
                   text={buildQuarterlyCategoryText(summaryResult)}
                   title="复制工作分类统计"
                 />
               </div>
-              {summaryResult.work_categories.map((cat, index) => (
-                <div
-                  key={index}
-                  style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}
-                >
-                  <span>{cat.category}</span>
-                  <span>{cat.percentage}%</span>
-                </div>
-              ))}
-            </div>
+              <div className="category-list">
+                {summaryResult.work_categories.map((cat, index) => (
+                  <div className="category-row" key={`${cat.category}-${index}`}>
+                    <span className="category-name">{cat.category}</span>
+                    <span className="usage-track">
+                      <span
+                        className="usage-fill"
+                        style={{ width: `${Math.min(100, Math.max(2, cat.percentage))}%` }}
+                      />
+                    </span>
+                    <span className="category-value">{cat.percentage}%</span>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
         </>
       ) : selectedQuarter ? (
-        <div className="empty-state">
-          <p>该季度暂无汇总</p>
-          <p style={{ fontSize: '14px', marginTop: '8px' }}>请点击上方按钮生成季度汇总</p>
-        </div>
+        <EmptyState
+          icon="chart"
+          title={`${selectedQuarter.replace('-', ' ')} 还没有汇总`}
+          description="生成后会得到季度概述、工作亮点和分类占比，并可一键复制"
+          action={
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              <Icon name="sparkles" size={15} />
+              {generating ? '生成中…' : '生成季度汇总'}
+            </button>
+          }
+        />
       ) : (
-        <div className="empty-state">
-          <p>请选择一个季度</p>
-        </div>
+        <EmptyState
+          icon="inbox"
+          title="请选择一个季度"
+          description="选择后即可查看或生成该季度的汇总"
+        />
       )}
     </div>
   )

@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
 import { CopyButton, CopyIconButton } from '../components/CopyButton'
+import { PageHeader } from '../components/PageHeader'
+import { ProgressPanel } from '../components/ProgressPanel'
+import { EmptyState } from '../components/EmptyState'
+import { Icon } from '../components/Icon'
 import { useAnalysis } from '../contexts/AnalysisContext'
+import { currentYearLabel } from '../lib/date'
 import {
   buildYearlyCategoryText,
   buildYearlyConclusionText,
@@ -10,12 +15,14 @@ import {
 } from '../lib/summary-text'
 import type { YearlySummaryResult, PeriodicSummary } from '../../../shared/types/database'
 
+const categoryNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+
 export function YearlySummary(): React.JSX.Element {
-  const [selectedYear, setSelectedYear] = useState('')
+  const [selectedYear, setSelectedYear] = useState(currentYearLabel)
   const [summary, setSummary] = useState<PeriodicSummary | null>(null)
   const [allSummaries, setAllSummaries] = useState<PeriodicSummary[]>([])
   const [loading, setLoading] = useState(false)
-  const { generating, triggerPeriodicSummary, onAnalysisComplete } = useAnalysis()
+  const { generating, generatingLabel, triggerPeriodicSummary, onAnalysisComplete } = useAnalysis()
 
   useEffect(() => {
     loadAllSummaries()
@@ -79,89 +86,141 @@ export function YearlySummary(): React.JSX.Element {
     ? buildYearlyFullText(selectedYear || summaryResult.period || '', summaryResult)
     : ''
 
-  const categoryNumbers = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
-
   return (
     <div>
-      <div className="page-header">
-        <h2>年度汇总</h2>
-      </div>
+      <PageHeader
+        title="年度汇总"
+        description="按年度串起全年工作，可直接复制为年终总结初稿"
+        actions={
+          <>
+            {summaryResult && <CopyButton text={loading ? '' : copyContent} label="复制全文" />}
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={handleGenerate}
+              disabled={!selectedYear || generating}
+            >
+              <Icon name="sparkles" size={15} />
+              {generating ? '生成中…' : '生成汇总'}
+            </button>
+          </>
+        }
+      />
 
-      <PeriodSelector type="year" value={selectedYear} onChange={setSelectedYear} />
-
-      {allSummaries.length > 0 && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-title">已生成的年度汇总</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {allSummaries.map((s) => (
-              <button
-                key={s.period_label}
-                className={`button ${s.period_label === selectedYear ? 'button-primary' : 'button-secondary'}`}
-                onClick={() => setSelectedYear(s.period_label)}
-              >
-                {s.period_label}年
-              </button>
-            ))}
-          </div>
+      <section className="card toolbar-card">
+        <div className="toolbar">
+          <PeriodSelector type="year" value={selectedYear} onChange={setSelectedYear} />
+          {allSummaries.length > 0 && (
+            <>
+              <span className="toolbar-divider" aria-hidden="true" />
+              <span className="toolbar-label">已生成</span>
+              <div className="pill-group">
+                {allSummaries.map((s) => (
+                  <button
+                    type="button"
+                    key={s.period_label}
+                    className={`pill${s.period_label === selectedYear ? ' active' : ''}`}
+                    onClick={() => setSelectedYear(s.period_label)}
+                  >
+                    {s.period_label} 年
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
+      </section>
+
+      {generating && generatingLabel === selectedYear && (
+        <ProgressPanel
+          label={`正在生成 ${generatingLabel ?? selectedYear} 年度汇总`}
+          progress={null}
+        />
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-        {selectedYear && (
-          <button className="button button-primary" onClick={handleGenerate} disabled={generating}>
-            {generating ? '生成中...' : '生成年度汇总'}
-          </button>
-        )}
-        {summaryResult && <CopyButton text={loading ? '' : copyContent} label="复制汇总" />}
-      </div>
-
       {loading ? (
-        <div className="loading">加载中...</div>
+        <div className="page-loading">
+          <span className="spinner" />
+          加载中…
+        </div>
       ) : summaryResult ? (
         <>
-          <div className="summary-box has-copy">
-            <CopyIconButton text={buildYearlyOpeningText(summaryResult)} title="复制开头语" />
-            <p>{summaryResult.opening}</p>
-          </div>
+          <section className="card summary-card has-copy">
+            <div className="card-header">
+              <h3 className="card-title">
+                <Icon name="file-text" size={15} />
+                年度开篇
+              </h3>
+              <CopyIconButton text={buildYearlyOpeningText(summaryResult)} title="复制开头语" />
+            </div>
+            <p className="summary-text">{summaryResult.opening}</p>
+          </section>
+
+          {summaryResult.categories.length > 0 && (
+            <div className="section-header">
+              <h3 className="section-title">分板块总结</h3>
+              <span className="card-hint">共 {summaryResult.categories.length} 个板块</span>
+            </div>
+          )}
 
           {summaryResult.categories.map((category, catIndex) => (
-            <div className="card" key={catIndex} style={{ marginBottom: '16px' }}>
-              <div className="card-title">
-                <span>
-                  {categoryNumbers[catIndex] || catIndex + 1}、{category.title}
-                </span>
+            <section className="card category-card" key={catIndex}>
+              <div className="card-header">
+                <h3 className="card-title">
+                  <span className="index-badge">{categoryNumbers[catIndex] || catIndex + 1}</span>
+                  {category.title}
+                </h3>
                 <CopyIconButton
                   text={buildYearlyCategoryText(category, catIndex)}
                   title={`复制「${category.title || catIndex + 1}」`}
                 />
               </div>
               {(category.items || []).map((item, itemIndex) => (
-                <div key={itemIndex} style={{ marginBottom: '16px', paddingLeft: '8px' }}>
-                  <div style={{ fontWeight: 600, marginBottom: '6px' }}>
-                    {itemIndex + 1}）{item.subtitle}
-                  </div>
-                  <p style={{ margin: 0, lineHeight: '1.8', color: 'var(--text-secondary)' }}>
-                    {item.description}
+                <div className="category-item" key={itemIndex}>
+                  <p className="category-item-title">
+                    <span className="category-item-index">{itemIndex + 1}</span>
+                    {item.subtitle}
                   </p>
+                  <p className="category-item-text">{item.description}</p>
                 </div>
               ))}
-            </div>
+            </section>
           ))}
 
-          <div className="summary-box has-copy">
-            <CopyIconButton text={buildYearlyConclusionText(summaryResult)} title="复制总结" />
-            <p>{summaryResult.summary}</p>
-          </div>
+          <section className="card summary-card has-copy">
+            <div className="card-header">
+              <h3 className="card-title">
+                <Icon name="sparkles" size={15} />
+                年度总结
+              </h3>
+              <CopyIconButton text={buildYearlyConclusionText(summaryResult)} title="复制总结" />
+            </div>
+            <p className="summary-text">{summaryResult.summary}</p>
+          </section>
         </>
       ) : selectedYear ? (
-        <div className="empty-state">
-          <p>该年度暂无汇总</p>
-          <p style={{ fontSize: '14px', marginTop: '8px' }}>请点击上方按钮生成年度汇总</p>
-        </div>
+        <EmptyState
+          icon="layers"
+          title={`${selectedYear} 年还没有汇总`}
+          description="生成后会得到年度开篇、分板块总结和结语，适合直接改写成年终汇报"
+          action={
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              <Icon name="sparkles" size={15} />
+              {generating ? '生成中…' : '生成年度汇总'}
+            </button>
+          }
+        />
       ) : (
-        <div className="empty-state">
-          <p>请选择一个年份</p>
-        </div>
+        <EmptyState
+          icon="inbox"
+          title="请选择一个年份"
+          description="选择后即可查看或生成该年度的汇总"
+        />
       )}
     </div>
   )

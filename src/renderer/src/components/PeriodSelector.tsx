@@ -1,4 +1,5 @@
 import React from 'react'
+import { Icon } from './Icon'
 
 interface PeriodSelectorProps {
   type: 'quarter' | 'year'
@@ -6,45 +7,36 @@ interface PeriodSelectorProps {
   onChange: (value: string) => void
 }
 
+/** 周期选择：下拉框带图标和固定宽度，选项文案统一带中文单位 */
 export function PeriodSelector({ type, value, onChange }: PeriodSelectorProps): React.JSX.Element {
   const currentYear = new Date().getFullYear()
 
-  if (type === 'year') {
-    const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
-
-    return (
-      <div className="date-picker">
-        <label>选择年份:</label>
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">请选择</option>
-          {years.map((year) => (
-            <option key={year} value={year.toString()}>
-              {year}年
-            </option>
-          ))}
-        </select>
-      </div>
-    )
-  }
-
-  const quarters: string[] = []
-  for (let year = currentYear; year >= currentYear - 2; year--) {
-    for (let q = 4; q >= 1; q--) {
-      quarters.push(`${year}-Q${q}`)
-    }
-  }
+  const options: { value: string; label: string }[] =
+    type === 'year'
+      ? Array.from({ length: 6 }, (_, i) => {
+          const year = currentYear - i
+          return { value: String(year), label: `${year} 年` }
+        })
+      : Array.from({ length: 3 }, (_, i) => currentYear - i).flatMap((year) =>
+          [4, 3, 2, 1].map((q) => ({ value: `${year}-Q${q}`, label: `${year} 年 Q${q}` }))
+        )
 
   return (
-    <div className="date-picker">
-      <label>选择季度:</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">请选择</option>
-        {quarters.map((quarter) => (
-          <option key={quarter} value={quarter}>
-            {quarter}
+    <label className="select-with-icon">
+      <Icon name="calendar" size={15} />
+      <select
+        className="input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={type === 'year' ? '选择年份' : '选择季度'}
+      >
+        <option value="">请选择{type === 'year' ? '年份' : '季度'}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
           </option>
         ))}
       </select>
-    </div>
+    </label>
   )
 }
