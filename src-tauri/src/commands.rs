@@ -164,6 +164,11 @@ pub async fn summary_trigger(
 ) -> Result<Value, String> {
     let runtime = runtime.inner().clone();
 
+    if !runtime.try_begin_analysis() {
+        logger::warn("已有分析任务在执行，忽略本次周期汇总");
+        return Ok(json!({ "status": "busy", "periodLabel": period_label }));
+    }
+
     let result = if let Some(caps) = parse_quarter(&period_label) {
         analyzer::generate_quarterly(&runtime, caps.0, caps.1).await
     } else {
@@ -172,6 +177,8 @@ pub async fn summary_trigger(
             Err(_) => Err(format!("无法解析汇总周期: {period_label}")),
         }
     };
+
+    runtime.end_analysis();
 
     match result {
         Ok(true) => Ok(json!({ "status": "completed", "periodLabel": period_label })),

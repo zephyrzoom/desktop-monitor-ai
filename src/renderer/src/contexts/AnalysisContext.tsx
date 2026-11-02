@@ -62,6 +62,14 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     return unsubscribe
   }, [notifyComplete])
 
+  // 定时任务自动生成季度/年度汇总后，让汇总页重新拉取结果
+  useEffect(() => {
+    const unsubscribe = window.api.onSummaryGenerated(() => {
+      notifyComplete()
+    })
+    return unsubscribe
+  }, [notifyComplete])
+
   const triggerAnalysis = useCallback(
     async (date: string) => {
       setAnalyzing(true)

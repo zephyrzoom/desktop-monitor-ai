@@ -55,6 +55,10 @@ pub struct AnalysisConfig {
     pub model: String,
     pub custom_headers: String,
     pub schedule_time: String,
+    /// 季度结束后随每日分析自动生成上一季度汇总
+    pub auto_quarterly: bool,
+    /// 年度结束后随每日分析自动生成上一年度汇总
+    pub auto_yearly: bool,
     pub max_screenshots_per_batch: usize,
     pub gap_threshold_minutes: i64,
     pub task_memory_days: i64,
@@ -69,6 +73,8 @@ impl Default for AnalysisConfig {
             model: "gpt-4o".to_string(),
             custom_headers: String::new(),
             schedule_time: "23:00".to_string(),
+            auto_quarterly: true,
+            auto_yearly: true,
             max_screenshots_per_batch: 15,
             gap_threshold_minutes: 15,
             task_memory_days: 3,

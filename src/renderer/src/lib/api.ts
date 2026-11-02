@@ -69,6 +69,9 @@ export const api = {
     subscribe<AnalysisProgressPayload>('analysis:status', callback),
   onAnalysisComplete: (callback: (date: string) => void) =>
     subscribe<string>('analysis:result', callback),
+  /** 定时任务自动生成季度/年度汇总后通知，payload 为周期标签（如 2026-Q3 / 2025） */
+  onSummaryGenerated: (callback: (periodLabel: string) => void) =>
+    subscribe<string>('summary:result', callback),
 
   // 配置
   getConfig: () => invoke<unknown>('config_get'),

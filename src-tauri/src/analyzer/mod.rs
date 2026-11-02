@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use base64::Engine as _;
-use chrono::{DateTime, Duration as ChronoDuration, Local, NaiveDate, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration as ChronoDuration, Local, NaiveDate, Timelike, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{ExtendedColorType, GenericImageView};
 use serde_json::{json, Value};
@@ -932,6 +932,83 @@ fn scheduled_target_date(now: DateTime<Local>) -> String {
     }
 }
 
+/// 最近一个已经结束的季度，返回 `(年, 季度)`。
+///
+/// 2026-11-02 落在 Q4 里，返回 `(2026, 3)`；2026-01-01 落在 Q1 第一天，
+/// 此时刚结束的是上一年的 Q4，返回 `(2025, 4)`。
+fn last_finished_quarter(today: NaiveDate) -> (i32, u32) {
+    let current_index = today.month0() / 3;
+    let prev_index = (current_index + 3) % 4;
+    let year = if current_index == 0 {
+        today.year() - 1
+    } else {
+        today.year()
+    };
+    (year, prev_index + 1)
+}
+
+fn has_periodic_summary(rt: &Runtime, period_type: &str, period_label: &str) -> bool {
+    matches!(
+        rt.db.periodic_summary(period_type, period_label),
+        Ok(Some(_))
+    )
+}
+
+/// 定时任务末尾的周期汇总：日报补齐后，为「最近一个已结束的季度/年度」生成汇总。
+///
+/// 幂等：已存在汇总、或该周期没有任何日报时直接跳过，所以每天触发一次也不会重复调用模型；
+/// 季末/年末那天恰好没开机时，下次定时任务仍会补上，不会永久漏掉。
+async fn generate_finished_periods(rt: &Arc<Runtime>) {
+    let config = rt.config.analysis();
+    let today = Local::now().date_naive();
+
+    if config.auto_quarterly {
+        let (year, quarter) = last_finished_quarter(today);
+        let label = format!("{year}-Q{quarter}");
+
+        if has_periodic_summary(rt, "quarter", &label) {
+            logger::info(format!("[AnalysisScheduler] {label} 季度汇总已存在，跳过"));
+        } else {
+            emit_progress(rt, format!("正在生成 {label} 季度汇总"), 1, 1);
+            match generate_quarterly(rt, year, quarter).await {
+                Ok(true) => {
+                    logger::info(format!("[AnalysisScheduler] 自动生成 {label} 季度汇总完成"));
+                    rt.emit("summary:result", label.clone());
+                }
+                Ok(false) => logger::info(format!(
+                    "[AnalysisScheduler] {label} 没有日报数据，跳过季度自动汇总"
+                )),
+                Err(err) => logger::error(format!(
+                    "[AnalysisScheduler] 自动生成 {label} 季度汇总失败：{err}"
+                )),
+            }
+        }
+    }
+
+    if config.auto_yearly {
+        let year = today.year() - 1;
+        let label = year.to_string();
+
+        if has_periodic_summary(rt, "year", &label) {
+            logger::info(format!("[AnalysisScheduler] {label} 年度汇总已存在，跳过"));
+        } else {
+            emit_progress(rt, format!("正在生成 {label} 年度汇总"), 1, 1);
+            match generate_yearly(rt, year).await {
+                Ok(true) => {
+                    logger::info(format!("[AnalysisScheduler] 自动生成 {label} 年度汇总完成"));
+                    rt.emit("summary:result", label.clone());
+                }
+                Ok(false) => logger::info(format!(
+                    "[AnalysisScheduler] {label} 没有日报数据，跳过年度自动汇总"
+                )),
+                Err(err) => logger::error(format!(
+                    "[AnalysisScheduler] 自动生成 {label} 年度汇总失败：{err}"
+                )),
+            }
+        }
+    }
+}
+
 async fn run_scheduled(rt: Arc<Runtime>) {
     if !rt.try_begin_analysis() {
         logger::warn("[AnalysisScheduler] 已有分析任务在执行，跳过本次定时分析");
@@ -949,6 +1026,9 @@ async fn run_scheduled(rt: Arc<Runtime>) {
 
     let start = add_days(&target, -(BACKFILL_DAYS - 1));
     backfill_range(&rt, &start, &target).await;
+
+    // 日报补齐之后再看季度/年度是否该出汇总，保证汇总读到的日报是完整的
+    generate_finished_periods(&rt).await;
 
     rt.end_analysis();
 }
@@ -1000,5 +1080,30 @@ impl Scheduler {
         if let Some(handle) = self.handle.lock().unwrap().take() {
             handle.abort();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn finished_quarter_of(year: i32, month: u32, day: u32) -> (i32, u32) {
+        last_finished_quarter(
+            NaiveDate::from_ymd_opt(year, month, day).expect("测试日期应当合法"),
+        )
+    }
+
+    #[test]
+    fn last_finished_quarter_skips_current_quarter() {
+        // 季度第一天：刚结束的是上一个季度，跨年时归属上一年
+        assert_eq!(finished_quarter_of(2026, 1, 1), (2025, 4));
+        assert_eq!(finished_quarter_of(2026, 4, 1), (2026, 1));
+        assert_eq!(finished_quarter_of(2026, 7, 1), (2026, 2));
+        assert_eq!(finished_quarter_of(2026, 10, 1), (2026, 3));
+
+        // 季度中段与最后一天，指向的都是刚结束的那个季度
+        assert_eq!(finished_quarter_of(2026, 3, 31), (2025, 4));
+        assert_eq!(finished_quarter_of(2026, 11, 2), (2026, 3));
+        assert_eq!(finished_quarter_of(2026, 12, 31), (2026, 3));
     }
 }

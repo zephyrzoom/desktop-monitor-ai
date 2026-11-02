@@ -1132,6 +1132,10 @@ select.input {
   gap: 20px;
 }
 
+.switch-row + .switch-row {
+  margin-top: 14px;
+}
+
 .switch {
   position: relative;
   display: inline-block;

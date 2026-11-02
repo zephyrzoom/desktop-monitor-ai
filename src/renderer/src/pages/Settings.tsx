@@ -24,6 +24,8 @@ interface Config {
     model: string
     customHeaders: string
     scheduleTime: string
+    autoQuarterly: boolean
+    autoYearly: boolean
     maxScreenshotsPerBatch: number
     gapThresholdMinutes: number
     taskMemoryDays: number
@@ -92,7 +94,10 @@ export function Settings(): React.JSX.Element {
     setDirty(true)
   }
 
-  function updateAnalysis(key: keyof Config['analysis'], value: string | number): void {
+  function updateAnalysis(
+    key: keyof Config['analysis'],
+    value: string | number | boolean
+  ): void {
     if (!config) return
     setConfig({
       ...config,
@@ -241,6 +246,42 @@ export function Settings(): React.JSX.Element {
               部分中转/企业 API 需要额外报文头。每行一条，格式 Key: Value，以 # 开头的行忽略
             </span>
           </div>
+        </div>
+
+        <p className="form-divider">自动汇总</p>
+
+        <div className="switch-row">
+          <div className="field">
+            <span className="field-label">季度汇总</span>
+            <span className="field-hint">
+              季度结束后，随每日分析自动生成上一季度的汇总；已生成过则跳过
+            </span>
+          </div>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={config.analysis.autoQuarterly ?? true}
+              onChange={(e) => updateAnalysis('autoQuarterly', e.target.checked)}
+            />
+            <span className="switch-slider" />
+          </label>
+        </div>
+
+        <div className="switch-row">
+          <div className="field">
+            <span className="field-label">年度汇总</span>
+            <span className="field-hint">
+              每年结束后，随每日分析自动生成上一年度的汇总；已生成过则跳过
+            </span>
+          </div>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={config.analysis.autoYearly ?? true}
+              onChange={(e) => updateAnalysis('autoYearly', e.target.checked)}
+            />
+            <span className="switch-slider" />
+          </label>
         </div>
 
         <p className="form-divider">分析参数</p>
