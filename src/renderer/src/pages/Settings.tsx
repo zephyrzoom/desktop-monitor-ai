@@ -4,6 +4,16 @@ import { Alert } from '../components/Alert'
 import { Icon } from '../components/Icon'
 import { APP_VERSION, getBuildTime, getPlatformName } from '../lib/version'
 
+/** 自动模式下「分析前一天」的小时分界，需与 Rust 的 AUTO_PREVIOUS_DAY_HOUR 保持一致 */
+const AUTO_PREVIOUS_DAY_HOUR = 6
+
+/** 定时任务到点后实际分析的日期：auto 时按 06:00 分界推断，其余按配置值 */
+function effectiveScheduleMode(mode: string, scheduleTime: string): 'today' | 'previous' {
+  if (mode === 'today' || mode === 'previous') return mode
+  const hour = Number.parseInt(scheduleTime.split(':')[0] ?? '', 10)
+  return Number.isFinite(hour) && hour < AUTO_PREVIOUS_DAY_HOUR ? 'previous' : 'today'
+}
+
 interface Config {
   general: {
     launchAtStartup: boolean
@@ -24,6 +34,7 @@ interface Config {
     model: string
     customHeaders: string
     scheduleTime: string
+    scheduleDateMode: string
     autoQuarterly: boolean
     autoYearly: boolean
     maxScreenshotsPerBatch: number
@@ -136,6 +147,18 @@ export function Settings(): React.JSX.Element {
     )
   }
 
+  const scheduleDateMode = config.analysis.scheduleDateMode ?? 'auto'
+  const scheduleTargetsPrevious =
+    effectiveScheduleMode(scheduleDateMode, config.analysis.scheduleTime) === 'previous'
+  const scheduleDateHint =
+    scheduleDateMode === 'auto'
+      ? `按时间自动判断，当前每天 ${config.analysis.scheduleTime || '--:--'} 分析${
+          scheduleTargetsPrevious ? '前一天' : '当天'
+        }的日报`
+      : scheduleTargetsPrevious
+        ? '到点分析前一天的完整数据，适合凌晨触发，如 01:30'
+        : '到点分析当天的数据，适合晚间触发，如 23:00'
+
   return (
     <div>
       <PageHeader title="配置" description="监控频率、AI 接口与数据保留策略，修改后需保存生效" />
@@ -227,7 +250,24 @@ export function Settings(): React.JSX.Element {
               value={config.analysis.scheduleTime}
               onChange={(e) => updateAnalysis('scheduleTime', e.target.value)}
             />
-            <span className="field-hint">每天到点自动生成当日日报</span>
+            <span className="field-hint">每天到点自动生成日报</span>
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="scheduleDateMode">
+              分析日期
+            </label>
+            <select
+              id="scheduleDateMode"
+              className="input"
+              value={scheduleDateMode}
+              onChange={(e) => updateAnalysis('scheduleDateMode', e.target.value)}
+            >
+              <option value="auto">自动（06:00 前分析前一天）</option>
+              <option value="today">当天</option>
+              <option value="previous">前一天</option>
+            </select>
+            <span className="field-hint">{scheduleDateHint}</span>
           </div>
 
           <div className="field field-full">

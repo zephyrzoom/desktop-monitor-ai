@@ -55,6 +55,8 @@ pub struct AnalysisConfig {
     pub model: String,
     pub custom_headers: String,
     pub schedule_time: String,
+    /// 定时分析的目标日期：`auto`（06:00 前分析前一天）/ `today`（当天）/ `previous`（前一天）
+    pub schedule_date_mode: String,
     /// 季度结束后随每日分析自动生成上一季度汇总
     pub auto_quarterly: bool,
     /// 年度结束后随每日分析自动生成上一年度汇总
@@ -73,6 +75,7 @@ impl Default for AnalysisConfig {
             model: "gpt-4o".to_string(),
             custom_headers: String::new(),
             schedule_time: "23:00".to_string(),
+            schedule_date_mode: "auto".to_string(),
             auto_quarterly: true,
             auto_yearly: true,
             max_screenshots_per_batch: 15,

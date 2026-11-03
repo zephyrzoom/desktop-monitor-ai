@@ -919,16 +919,49 @@ pub async fn rerun_daily(rt: &Arc<Runtime>, days: Option<i64>) -> RerunOutcome {
     }
 }
 
-/// 定时任务要总结的日期。
+/// 自动模式下，早于这个小时触发的定时任务总结「昨天」。
 ///
-/// 凌晨（06:00 前）触发时总结「昨天」：那一刻今天才刚开始，只有 0 点后的零星截图，
-/// 直接分析今天会生成一条从 00:00 起、内容残缺的日报，而且因为日报已存在，
-/// 第二天的批量补算也只会覆盖它而不是重头分析，于是每天都留着一条错误的凌晨日报。
-fn scheduled_target_date(now: DateTime<Local>) -> String {
-    if now.hour() < 6 {
-        date_string(now.date_naive() - ChronoDuration::days(1))
-    } else {
-        now.format("%Y-%m-%d").to_string()
+/// 凌晨触发时那一刻今天才刚开始，只有 0 点后的零星截图，直接分析今天会生成一条
+/// 从 00:00 起、内容残缺的日报；而且因为日报已存在，第二天的批量补算也只会覆盖它
+/// 而不是重头分析，于是每天都留着一条错误的凌晨日报。
+const AUTO_PREVIOUS_DAY_HOUR: u32 = 6;
+
+/// 定时任务要总结的日期，由配置的 `scheduleDateMode` 决定：
+///
+/// - `today`：总是总结当天（适合晚间触发，如 23:00）
+/// - `previous`：总是总结前一天（适合凌晨触发，如 01:30）
+/// - 其他（`auto` / 非法值）：沿用时间规则，早于 06:00 触发时总结昨天
+fn scheduled_target_date(now: DateTime<Local>, mode: &str) -> String {
+    let today = now.date_naive();
+    let target = match mode {
+        "today" => today,
+        "previous" => today - ChronoDuration::days(1),
+        _ => {
+            if now.hour() < AUTO_PREVIOUS_DAY_HOUR {
+                today - ChronoDuration::days(1)
+            } else {
+                today
+            }
+        }
+    };
+    date_string(target)
+}
+
+/// 把配置里的时间规整成 `HH:MM`。
+///
+/// 手输的 `9:00`、带空格的 ` 09:00 ` 都等价于 `09:00`，否则字符串比较永远对不上，
+/// 定时任务会静默不触发。非法值原样返回，交给调用方按「不匹配」处理。
+fn normalize_hhmm(value: &str) -> String {
+    let trimmed = value.trim();
+    let mut parts = trimmed.split(':');
+    let (hour, minute) = match (parts.next(), parts.next()) {
+        (Some(hour), Some(minute)) => (hour, minute),
+        _ => return trimmed.to_string(),
+    };
+
+    match (hour.parse::<u32>(), minute.parse::<u32>()) {
+        (Ok(hour), Ok(minute)) if hour < 24 && minute < 60 => format!("{hour:02}:{minute:02}"),
+        _ => trimmed.to_string(),
     }
 }
 
@@ -1015,8 +1048,12 @@ async fn run_scheduled(rt: Arc<Runtime>) {
         return;
     }
 
-    let target = scheduled_target_date(Local::now());
-    logger::info(format!("[AnalysisScheduler] 定时触发分析: {target}"));
+    let config = rt.config.analysis();
+    let target = scheduled_target_date(Local::now(), &config.schedule_date_mode);
+    logger::info(format!(
+        "[AnalysisScheduler] 定时触发分析: {target}（日期模式 {}）",
+        config.schedule_date_mode
+    ));
 
     match analyze_daily(&rt, &target).await {
         Ok(Some(_)) => rt.emit("analysis:result", target.clone()),
@@ -1058,7 +1095,7 @@ impl Scheduler {
                 let now = Local::now();
                 let now_key = now.format("%Y-%m-%d %H:%M").to_string();
 
-                if now.format("%H:%M").to_string() != schedule_time {
+                if now.format("%H:%M").to_string() != normalize_hhmm(&schedule_time) {
                     continue;
                 }
                 if last_triggered == now_key {
@@ -1085,7 +1122,58 @@ impl Scheduler {
 
 #[cfg(test)]
 mod tests {
+    use chrono::TimeZone;
+
     use super::*;
+
+    fn local_at(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> DateTime<Local> {
+        Local
+            .with_ymd_and_hms(year, month, day, hour, minute, 0)
+            .single()
+            .expect("测试时间应当合法且无歧义")
+    }
+
+    fn target_of(year: i32, month: u32, day: u32, hour: u32, mode: &str) -> String {
+        scheduled_target_date(local_at(year, month, day, hour, 0), mode)
+    }
+
+    #[test]
+    fn auto_mode_rolls_back_only_before_six() {
+        // 06:00 是分界：之前总结昨天，之后总结当天
+        assert_eq!(target_of(2026, 11, 3, 5, "auto"), "2026-11-02");
+        assert_eq!(target_of(2026, 11, 3, 6, "auto"), "2026-11-03");
+        assert_eq!(target_of(2026, 11, 3, 23, "auto"), "2026-11-03");
+
+        // 跨年时回退到上一年最后一天
+        assert_eq!(target_of(2026, 1, 1, 0, "auto"), "2025-12-31");
+
+        // 未知/空值退回自动模式，不能因为手改配置就瘫掉
+        assert_eq!(target_of(2026, 11, 3, 1, ""), "2026-11-02");
+        assert_eq!(target_of(2026, 11, 3, 1, "yesterday"), "2026-11-02");
+    }
+
+    #[test]
+    fn explicit_modes_ignore_clock() {
+        // today：凌晨触发也分析当天
+        assert_eq!(target_of(2026, 11, 3, 1, "today"), "2026-11-03");
+        assert_eq!(target_of(2026, 11, 3, 23, "today"), "2026-11-03");
+
+        // previous：晚间触发也分析前一天
+        assert_eq!(target_of(2026, 11, 3, 23, "previous"), "2026-11-02");
+        assert_eq!(target_of(2026, 3, 1, 1, "previous"), "2026-02-28");
+    }
+
+    #[test]
+    fn hhmm_input_is_normalized_before_comparing() {
+        assert_eq!(normalize_hhmm("9:00"), "09:00");
+        assert_eq!(normalize_hhmm(" 23:05 "), "23:05");
+        assert_eq!(normalize_hhmm("00:00"), "00:00");
+
+        // 非法值原样返回，由调用方判定为不匹配
+        assert_eq!(normalize_hhmm("24:00"), "24:00");
+        assert_eq!(normalize_hhmm("晚上八点"), "晚上八点");
+        assert_eq!(normalize_hhmm(""), "");
+    }
 
     fn finished_quarter_of(year: i32, month: u32, day: u32) -> (i32, u32) {
         last_finished_quarter(NaiveDate::from_ymd_opt(year, month, day).expect("测试日期应当合法"))
