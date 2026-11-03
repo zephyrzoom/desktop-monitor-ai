@@ -4,7 +4,8 @@
 
 - **每次改完代码都要自动提交并 push**（用户 2026-10-29 明确要求，无需再问）。
   - 仓库：`origin` = https://github.com/zephyrzoom/desktop-monitor-ai.git
-  - 开发分支：`tauri`（Electron → Tauri 2 迁移分支），推 `origin tauri`。
+  - 开发分支：`new-ui`（基于 `tauri` 的 UI 改版分支，2026-11-02 起日常开发都在这里），
+    推 `origin new-ui`；`tauri` 是 Electron → Tauri 2 的迁移主分支。
   - 提交信息风格：Conventional Commits 前缀（`feat:` / `fix:` / `ci:` / `docs:`）+ 中文描述，
     正文用 `-` 列要点。参考历史：`fix: 日报时间段按本地时区显示`。
   - 提交前跑 `npm run typecheck`；改 Rust 时跑 `cargo check --manifest-path src-tauri/Cargo.toml`。

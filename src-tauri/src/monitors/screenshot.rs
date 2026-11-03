@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use active_win_pos_rs::WindowPosition;
 use chrono::Local;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
@@ -14,7 +15,7 @@ const MAX_WIDTH: u32 = 1280;
 const MAX_HEIGHT: u32 = 720;
 const JPEG_QUALITY: u8 = 80;
 
-/// 抓取主显示器画面并落库，返回截图记录 id。
+/// 抓取活动窗口所在显示器画面并落库，返回截图记录 id。
 pub fn capture(rt: &Runtime, trigger: &str) -> Option<i64> {
     let monitors = match xcap::Monitor::all() {
         Ok(list) if !list.is_empty() => list,
@@ -30,11 +31,7 @@ pub fn capture(rt: &Runtime, trigger: &str) -> Option<i64> {
         }
     };
 
-    let index = monitors
-        .iter()
-        .position(|m| m.is_primary().unwrap_or(false))
-        .unwrap_or(0);
-    let monitor = &monitors[index];
+    let monitor = target_monitor(&monitors);
 
     let image = match monitor.capture_image() {
         Ok(img) => img,
@@ -83,6 +80,45 @@ pub fn capture(rt: &Runtime, trigger: &str) -> Option<i64> {
             None
         }
     }
+}
+
+/// 选出本次要截图的显示器：优先活动窗口所在的那块屏，取不到时回退主显示器。
+///
+/// 多屏场景下固定截主屏会丢掉副屏上的工作画面，因此这里按窗口中心点命中屏幕。
+/// `xcap` 的 `from_point` 与 `kCGWindowBounds` / `GetWindowRect` 使用同一套全局坐标，
+/// 可直接拿窗口中心的坐标点做命中判断。
+fn target_monitor(monitors: &[xcap::Monitor]) -> xcap::Monitor {
+    if let Some((x, y)) = active_window_center() {
+        match xcap::Monitor::from_point(x, y) {
+            Ok(monitor) => return monitor,
+            Err(err) => logger::info(format!("按窗口位置定位显示器失败（{err}），回退主显示器")),
+        }
+    }
+
+    let index = monitors
+        .iter()
+        .position(|m| m.is_primary().unwrap_or(false))
+        .unwrap_or(0);
+    monitors[index].clone()
+}
+
+/// 当前活动窗口的中心点（全局坐标）。窗口信息缺失或尺寸异常时返回 `None`。
+fn active_window_center() -> Option<(i32, i32)> {
+    let window = active_win_pos_rs::get_active_window().ok()?;
+    window_center(&window.position)
+}
+
+fn window_center(position: &WindowPosition) -> Option<(i32, i32)> {
+    let values = [position.x, position.y, position.width, position.height];
+    if !values.iter().all(|value| value.is_finite()) {
+        return None;
+    }
+    if position.width <= 0.0 || position.height <= 0.0 {
+        return None;
+    }
+    let x = position.x + position.width / 2.0;
+    let y = position.y + position.height / 2.0;
+    Some((x as i32, y as i32))
 }
 
 fn downscale(image: &RgbaImage) -> RgbaImage {
@@ -169,5 +205,45 @@ pub fn cleanup(rt: &Runtime) {
                 let _ = fs::remove_dir(path);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::window_center;
+    use active_win_pos_rs::WindowPosition;
+
+    #[test]
+    fn window_center_is_geometric_middle() {
+        let position = WindowPosition::new(100.0, 200.0, 800.0, 600.0);
+        assert_eq!(window_center(&position), Some((500, 500)));
+    }
+
+    #[test]
+    fn window_center_keeps_negative_coordinates_for_screens_left_of_primary() {
+        // 副屏放在主屏左侧时，窗口 x 为负值，命中判断要保留符号
+        let position = WindowPosition::new(-1440.0, 0.0, 1440.0, 900.0);
+        assert_eq!(window_center(&position), Some((-720, 450)));
+    }
+
+    #[test]
+    fn window_center_rejects_empty_or_invalid_geometry() {
+        assert_eq!(window_center(&WindowPosition::default()), None);
+        assert_eq!(
+            window_center(&WindowPosition::new(0.0, 0.0, 0.0, 600.0)),
+            None
+        );
+        assert_eq!(
+            window_center(&WindowPosition::new(f64::NAN, 0.0, 800.0, 600.0)),
+            None
+        );
+        assert_eq!(
+            window_center(&WindowPosition::new(0.0, f64::INFINITY, 800.0, 600.0)),
+            None
+        );
+        assert_eq!(
+            window_center(&WindowPosition::new(0.0, 0.0, f64::INFINITY, 600.0)),
+            None
+        );
     }
 }
