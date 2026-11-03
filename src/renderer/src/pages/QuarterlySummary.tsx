@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { PeriodSelector } from '../components/PeriodSelector'
+import { PillGroup } from '../components/PillGroup'
 import { CopyButton, CopyIconButton } from '../components/CopyButton'
 import { PageHeader } from '../components/PageHeader'
 import { ProgressPanel } from '../components/ProgressPanel'
@@ -118,7 +119,7 @@ export function QuarterlySummary(): React.JSX.Element {
             <>
               <span className="toolbar-divider" aria-hidden="true" />
               <span className="toolbar-label">已生成</span>
-              <div className="pill-group">
+              <PillGroup>
                 {allSummaries.map((s) => (
                   <button
                     type="button"
@@ -129,7 +130,7 @@ export function QuarterlySummary(): React.JSX.Element {
                     {s.period_label.replace('-', ' ')}
                   </button>
                 ))}
-              </div>
+              </PillGroup>
             </>
           )}
         </div>

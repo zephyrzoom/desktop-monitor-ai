@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { DatePicker } from '../components/DatePicker'
+import { PillGroup } from '../components/PillGroup'
 import { WorkItemList } from '../components/WorkItemList'
 import { PageHeader } from '../components/PageHeader'
 import { ProgressPanel } from '../components/ProgressPanel'
@@ -196,7 +197,7 @@ export function DailyReport(): React.JSX.Element {
             <>
               <span className="toolbar-divider" aria-hidden="true" />
               <span className="toolbar-label">已分析</span>
-              <div className="pill-group">
+              <PillGroup>
                 {allAnalyses.slice(0, 8).map((a) => (
                   <button
                     type="button"
@@ -208,7 +209,7 @@ export function DailyReport(): React.JSX.Element {
                     {a.date.slice(5)}
                   </button>
                 ))}
-              </div>
+              </PillGroup>
             </>
           )}
         </div>

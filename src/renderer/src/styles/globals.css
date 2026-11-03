@@ -719,18 +719,21 @@ a {
   color: var(--text-3);
 }
 
-/* flex-basis 取 0：胶囊组按剩余宽度收缩、在自己的盒子里换行，
-   而不是整组被挤到工具条的下一行（否则日期一多就整体掉一行）。 */
+/* 只排一行：放不下的胶囊由 PillGroup 组件整颗隐藏（overflow 兜底裁切），
+   flex-basis 取 0 让胶囊组按剩余宽度收缩，不会被整组挤到工具条的下一行。 */
 .pill-group {
   display: flex;
   flex: 1 1 0;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   gap: 6px;
 }
 
 .pill {
   height: 26px;
+  min-width: 56px;
+  flex: none;
   padding: 0 9px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
