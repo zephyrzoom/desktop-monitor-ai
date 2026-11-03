@@ -149,6 +149,7 @@ export function Settings(): React.JSX.Element {
   }
 
   const scheduleDateMode = config.analysis.scheduleDateMode ?? 'auto'
+  const monitoringAllDay = config.monitoring.monitoringAllDay ?? true
   const scheduleTargetsPrevious =
     effectiveScheduleMode(scheduleDateMode, config.analysis.scheduleTime) === 'previous'
   const scheduleDateHint =
@@ -410,7 +411,7 @@ export function Settings(): React.JSX.Element {
           <label className="switch">
             <input
               type="checkbox"
-              checked={config.monitoring.monitoringAllDay ?? true}
+              checked={monitoringAllDay}
               onChange={(e) => updateMonitoring('monitoringAllDay', e.target.checked)}
             />
             <span className="switch-slider" />
@@ -420,30 +421,57 @@ export function Settings(): React.JSX.Element {
         <div className="form-grid form-grid-after-switch">
           <div className="field">
             <span className="field-label">监控时间段</span>
-            <div className="inline-fields">
-              <input
-                className="input input-time"
-                type="time"
-                aria-label="监控开始时间"
-                disabled={config.monitoring.monitoringAllDay ?? true}
-                value={config.monitoring.monitoringStartTime || '00:00'}
-                onChange={(e) => updateMonitoring('monitoringStartTime', e.target.value)}
-              />
-              <span className="inline-sep">至</span>
-              <input
-                className="input input-time"
-                type="time"
-                aria-label="监控结束时间"
-                disabled={config.monitoring.monitoringAllDay ?? true}
-                value={config.monitoring.monitoringEndTime || '23:59'}
-                onChange={(e) => updateMonitoring('monitoringEndTime', e.target.value)}
-              />
+
+            {monitoringAllDay ? (
+              // 全天时不再渲染时间输入框：WebView 里 time 控件没有清空按钮，
+              // 留着灰框会让人以为「填了就只能守着」，没有回到全天的出口。
+              <div className="time-window-static">
+                <Icon name="clock" size={14} />
+                <span>00:00 — 24:00</span>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => updateMonitoring('monitoringAllDay', false)}
+                >
+                  自定义时段
+                </button>
+              </div>
+            ) : (
+              <div className="inline-fields">
+                <input
+                  className="input input-time"
+                  type="time"
+                  aria-label="监控开始时间"
+                  value={config.monitoring.monitoringStartTime || '00:00'}
+                  onChange={(e) => updateMonitoring('monitoringStartTime', e.target.value)}
+                />
+                <span className="inline-sep">至</span>
+                <input
+                  className="input input-time"
+                  type="time"
+                  aria-label="监控结束时间"
+                  value={config.monitoring.monitoringEndTime || '23:59'}
+                  onChange={(e) => updateMonitoring('monitoringEndTime', e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="field-hint-row">
+              <span className="field-hint">
+                {monitoringAllDay
+                  ? '全天持续监控，不受时间段限制'
+                  : '超出该时段自动暂停，跨零点可配 22:00 至 06:00'}
+              </span>
+              {!monitoringAllDay && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => updateMonitoring('monitoringAllDay', true)}
+                >
+                  恢复全天
+                </button>
+              )}
             </div>
-            <span className="field-hint">
-              {config.monitoring.monitoringAllDay ?? true
-                ? '已开启全天监控，时间段不生效；关闭上方开关后可指定，如 09:00 至 18:00'
-                : '超出该时段自动暂停，跨零点可配 22:00 至 06:00'}
-            </span>
           </div>
 
           <div className="field">
