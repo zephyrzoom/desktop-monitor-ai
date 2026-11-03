@@ -102,6 +102,13 @@ body {
   padding: 0;
 }
 
+/* 自绘滚动条（上面的 ::-webkit-scrollbar）会实打实占用 10px 布局宽度：
+   页面从「不滚动」变成「要滚动」时内容区会瞬间变窄 10px，
+   像日报工具条这种刚好放得下的 flex 行就会突然换行。这里常驻预留滚动条槽位。 */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   min-height: 100vh;
   background-color: var(--bg);
@@ -702,23 +709,29 @@ a {
 .toolbar-divider {
   width: 1px;
   height: 20px;
+  flex: none;
   background-color: var(--border);
 }
 
 .toolbar-label {
   font-size: 12px;
+  flex: none;
   color: var(--text-3);
 }
 
+/* flex-basis 取 0：胶囊组按剩余宽度收缩、在自己的盒子里换行，
+   而不是整组被挤到工具条的下一行（否则日期一多就整体掉一行）。 */
 .pill-group {
   display: flex;
+  flex: 1 1 0;
+  min-width: 0;
   flex-wrap: wrap;
   gap: 6px;
 }
 
 .pill {
   height: 26px;
-  padding: 0 10px;
+  padding: 0 9px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   background-color: var(--surface);
