@@ -995,6 +995,11 @@ a {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
+/* 紧跟开关行的表单网格：补一点间距，避免贴着开关 */
+.form-grid-after-switch {
+  margin-top: 18px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -1041,6 +1046,13 @@ a {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.input:disabled {
+  color: var(--text-3);
+  background-color: var(--surface-2);
+  border-color: var(--border);
+  cursor: not-allowed;
 }
 
 .input-num {

@@ -24,6 +24,7 @@ interface Config {
     windowPollIntervalMs: number
     windowChangeDebounceSec: number
     screenshotsDir: string
+    monitoringAllDay: boolean
     monitoringStartTime: string
     monitoringEndTime: string
     idleTimeoutMinutes: number
@@ -399,7 +400,24 @@ export function Settings(): React.JSX.Element {
           </h3>
         </div>
 
-        <div className="form-grid">
+        <div className="switch-row">
+          <div className="field">
+            <span className="field-label">全天监控</span>
+            <span className="field-hint">
+              全天持续记录，仅在空闲超时或手动暂停时停止；关闭后可指定监控时段
+            </span>
+          </div>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={config.monitoring.monitoringAllDay ?? true}
+              onChange={(e) => updateMonitoring('monitoringAllDay', e.target.checked)}
+            />
+            <span className="switch-slider" />
+          </label>
+        </div>
+
+        <div className="form-grid form-grid-after-switch">
           <div className="field">
             <span className="field-label">监控时间段</span>
             <div className="inline-fields">
@@ -407,6 +425,7 @@ export function Settings(): React.JSX.Element {
                 className="input input-time"
                 type="time"
                 aria-label="监控开始时间"
+                disabled={config.monitoring.monitoringAllDay ?? true}
                 value={config.monitoring.monitoringStartTime || '00:00'}
                 onChange={(e) => updateMonitoring('monitoringStartTime', e.target.value)}
               />
@@ -415,11 +434,16 @@ export function Settings(): React.JSX.Element {
                 className="input input-time"
                 type="time"
                 aria-label="监控结束时间"
+                disabled={config.monitoring.monitoringAllDay ?? true}
                 value={config.monitoring.monitoringEndTime || '23:59'}
                 onChange={(e) => updateMonitoring('monitoringEndTime', e.target.value)}
               />
             </div>
-            <span className="field-hint">只在指定时间段内监控，默认全天</span>
+            <span className="field-hint">
+              {config.monitoring.monitoringAllDay ?? true
+                ? '已开启全天监控，时间段不生效；关闭上方开关后可指定，如 09:00 至 18:00'
+                : '超出该时段自动暂停，跨零点可配 22:00 至 06:00'}
+            </span>
           </div>
 
           <div className="field">

@@ -327,7 +327,8 @@ fn apply_schedule(rt: &Runtime, shared: &Shared) {
         config.monitoring_end_time
     };
 
-    let in_range = within_monitoring_window(&start, &end, &current_hhmm());
+    let in_range =
+        config.monitoring_all_day || within_monitoring_window(&start, &end, &current_hhmm());
     let should_pause = !in_range;
     let paused = shared.time_paused.load(Ordering::SeqCst);
 
@@ -335,11 +336,17 @@ fn apply_schedule(rt: &Runtime, shared: &Shared) {
         return;
     }
 
+    let window_label = if config.monitoring_all_day {
+        "全天".to_string()
+    } else {
+        format!("{start}-{end}")
+    };
+
     if should_pause {
         flush_segment(rt, shared);
-        logger::info(format!("超出监控时段 {start}-{end}，暂停监控"));
+        logger::info(format!("超出监控时段 {window_label}，暂停监控"));
     } else {
-        logger::info(format!("进入监控时段 {start}-{end}，恢复监控"));
+        logger::info(format!("进入监控时段 {window_label}，恢复监控"));
     }
 
     shared.time_paused.store(should_pause, Ordering::SeqCst);
@@ -462,5 +469,28 @@ impl MonitorManager {
 
     pub fn shutdown(&self) {
         self.stop_all();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::within_monitoring_window;
+
+    #[test]
+    fn window_is_half_open_so_end_minute_excluded() {
+        assert!(within_monitoring_window("09:00", "18:00", "09:00"));
+        assert!(within_monitoring_window("09:00", "18:00", "17:59"));
+        assert!(!within_monitoring_window("09:00", "18:00", "18:00"));
+        assert!(!within_monitoring_window("09:00", "18:00", "08:59"));
+
+        // 所以 00:00-23:59 会漏掉当天最后一分钟，想要真正全天要开 monitoringAllDay
+        assert!(!within_monitoring_window("00:00", "23:59", "23:59"));
+    }
+
+    #[test]
+    fn overnight_window_wraps_midnight() {
+        assert!(within_monitoring_window("22:00", "06:00", "23:30"));
+        assert!(within_monitoring_window("22:00", "06:00", "05:59"));
+        assert!(!within_monitoring_window("22:00", "06:00", "12:00"));
     }
 }

@@ -27,9 +27,23 @@ pub struct MonitoringConfig {
     pub window_poll_interval_ms: u64,
     pub window_change_debounce_sec: u64,
     pub screenshots_dir: String,
+    /// 全天监控：忽略下方的起止时间，任何时刻都在监控窗口内
+    pub monitoring_all_day: bool,
     pub monitoring_start_time: String,
     pub monitoring_end_time: String,
     pub idle_timeout_minutes: u64,
+}
+
+impl MonitoringConfig {
+    /// 时间段是否等价于「整天」：起止留空，或覆盖 00:00 到 23:59。
+    ///
+    /// 老版本配置里没有 `monitoringAllDay` 字段，升级时用它推断，
+    /// 否则新字段默认 `true` 会把用户自定义的时段（如 09:00-18:00）悄悄改成全天。
+    pub fn infer_all_day(&self) -> bool {
+        let start = self.monitoring_start_time.trim();
+        let end = self.monitoring_end_time.trim();
+        (start.is_empty() || start == "00:00") && (end.is_empty() || end == "23:59")
+    }
 }
 
 impl Default for MonitoringConfig {
@@ -40,6 +54,7 @@ impl Default for MonitoringConfig {
             window_poll_interval_ms: 1000,
             window_change_debounce_sec: 3,
             screenshots_dir: String::new(),
+            monitoring_all_day: true,
             monitoring_start_time: "00:00".to_string(),
             monitoring_end_time: "23:59".to_string(),
             idle_timeout_minutes: 5,
@@ -122,6 +137,13 @@ pub struct Config {
     pub storage: StorageConfig,
 }
 
+/// 判断原始配置文本里是否存在某个键（用于区分「字段缺失」与「显式设为默认值」）。
+fn has_config_key(text: &str, pointer: &str) -> bool {
+    serde_json::from_str::<Value>(text)
+        .map(|raw| raw.pointer(pointer).is_some())
+        .unwrap_or(false)
+}
+
 pub struct ConfigStore {
     path: PathBuf,
     cache: Mutex<Config>,
@@ -131,7 +153,15 @@ impl ConfigStore {
     pub fn load(data_dir: &Path) -> Self {
         let path = data_dir.join("config.json");
         let cache = match fs::read_to_string(&path) {
-            Ok(text) => serde_json::from_str::<Config>(&text).unwrap_or_default(),
+            Ok(text) => {
+                let mut config = serde_json::from_str::<Config>(&text).unwrap_or_default();
+                // 老配置没有 monitoringAllDay：按原有起止时间推断是否为全天，
+                // 否则新字段默认 true 会把用户自定义的时段（如 09:00-18:00）改成全天。
+                if !has_config_key(&text, "/monitoring/monitoringAllDay") {
+                    config.monitoring.monitoring_all_day = config.monitoring.infer_all_day();
+                }
+                config
+            }
             Err(_) => {
                 let defaults = Config::default();
                 let store = Self {
@@ -196,5 +226,46 @@ impl ConfigStore {
         if let Ok(text) = serde_json::to_string_pretty(config) {
             let _ = fs::write(&self.path, text);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn monitoring(start: &str, end: &str) -> MonitoringConfig {
+        MonitoringConfig {
+            monitoring_start_time: start.to_string(),
+            monitoring_end_time: end.to_string(),
+            ..MonitoringConfig::default()
+        }
+    }
+
+    #[test]
+    fn legacy_window_infers_all_day_only_for_full_day() {
+        assert!(monitoring("00:00", "23:59").infer_all_day());
+        assert!(monitoring("", "").infer_all_day());
+        assert!(monitoring("00:00", "").infer_all_day());
+
+        // 自定义时段不能被判成全天，否则老配置升级后会被静默改成全天监控
+        assert!(!monitoring("09:00", "18:00").infer_all_day());
+        assert!(!monitoring("00:00", "12:00").infer_all_day());
+        assert!(!monitoring("22:00", "06:00").infer_all_day());
+    }
+
+    #[test]
+    fn config_key_probe_distinguishes_missing_field() {
+        let legacy = r#"{"monitoring":{"monitoringStartTime":"09:00"}}"#;
+        assert!(!has_config_key(legacy, "/monitoring/monitoringAllDay"));
+
+        // 显式写了 false 或 null 都算「用户设置过」，不再走推断
+        assert!(has_config_key(
+            r#"{"monitoring":{"monitoringAllDay":false}}"#,
+            "/monitoring/monitoringAllDay"
+        ));
+        assert!(has_config_key(
+            r#"{"monitoring":{"monitoringAllDay":null}}"#,
+            "/monitoring/monitoringAllDay"
+        ));
     }
 }
