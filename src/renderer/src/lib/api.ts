@@ -12,6 +12,13 @@ export interface AnalysisProgressPayload {
   total: number
 }
 
+/** 设置页当前表单里的 AI 接口参数（可能尚未保存） */
+export type ModelQuery = {
+  apiKey: string
+  baseUrl: string
+  customHeaders: string
+}
+
 export interface RerunResult {
   status: string
   total: number
@@ -77,6 +84,8 @@ export const api = {
   getConfig: () => invoke<unknown>('config_get'),
   setConfig: (key: string, value: unknown) => invoke<unknown>('config_set', { key, value }),
   getActiveBackend: () => invoke<string>('storage_active_backend'),
+  /** 拉取 OpenAI 兼容 /models 接口的可用模型；参数缺省时读已保存的配置 */
+  listModels: (query?: ModelQuery) => invoke<string[]>('analysis_list_models', query ?? {}),
 
   // 系统
   openPath: (filePath: string) => invoke<void>('system_open_path', { path: filePath }),

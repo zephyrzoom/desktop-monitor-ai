@@ -1166,6 +1166,17 @@ select.input {
   flex-shrink: 0;
 }
 
+/* 模型下拉旁的「刷新/获取模型」按钮：与输入框等高，列表很长时也不被挤扁 */
+.model-refresh {
+  height: 36px;
+  flex-shrink: 0;
+}
+
+/* 模型列表获取失败（如服务不提供 /models）时的行内提示 */
+.field-hint-error {
+  color: var(--danger-text);
+}
+
 /* 全天监控的只读展示，替代时间输入框 */
 .time-window-static {
   display: flex;

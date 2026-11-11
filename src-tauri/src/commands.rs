@@ -190,6 +190,26 @@ pub async fn summary_trigger(
     }
 }
 
+/// 拉取 AI 接口支持的模型列表，供设置页下拉选择。
+///
+/// 参数缺省时读已保存配置；设置页会传入表单里尚未保存的 API Key / Base URL，
+/// 这样用户填完就能直接试，不必先点保存。
+#[tauri::command]
+pub async fn analysis_list_models(
+    runtime: State<'_, Arc<Runtime>>,
+    api_key: Option<String>,
+    base_url: Option<String>,
+    custom_headers: Option<String>,
+) -> Result<Vec<String>, String> {
+    let saved = runtime.config.analysis();
+    let key = api_key.unwrap_or(saved.api_key);
+    let base = base_url.unwrap_or(saved.base_url);
+    let headers = custom_headers.unwrap_or(saved.custom_headers);
+    drop(runtime);
+
+    analyzer::llm::list_models(&key, &base, &headers).await
+}
+
 fn parse_quarter(label: &str) -> Option<(i32, u32)> {
     let (year, quarter) = label.split_once("-Q")?;
     Some((year.parse().ok()?, quarter.parse().ok()?))

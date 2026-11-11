@@ -89,6 +89,7 @@ pub fn run() {
             commands::data_today_stats,
             commands::analysis_trigger,
             commands::analysis_rerun,
+            commands::analysis_list_models,
             commands::summary_trigger,
             commands::config_get,
             commands::config_set,

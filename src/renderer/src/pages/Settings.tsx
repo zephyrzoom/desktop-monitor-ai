@@ -1,11 +1,24 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { Alert } from '../components/Alert'
 import { Icon } from '../components/Icon'
+import type { ModelQuery } from '../lib/api'
 import { APP_VERSION, getBuildTime, getPlatformName } from '../lib/version'
 
 /** 自动模式下「分析前一天」的小时分界，需与 Rust 的 AUTO_PREVIOUS_DAY_HOUR 保持一致 */
 const AUTO_PREVIOUS_DAY_HOUR = 6
+
+/** API Key / Base URL 输入后等多久自动拉取模型，避免每敲一个字符都发请求 */
+const MODELS_FETCH_DEBOUNCE_MS = 800
+
+function describeError(err: unknown): string {
+  if (typeof err === 'string') return err
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object' && 'message' in err) {
+    return String((err as { message: unknown }).message)
+  }
+  return '获取模型列表失败'
+}
 
 /** 定时任务到点后实际分析的日期：auto 时按 06:00 分界推断，其余按配置值 */
 function effectiveScheduleMode(mode: string, scheduleTime: string): 'today' | 'previous' {
@@ -58,21 +71,75 @@ export function Settings(): React.JSX.Element {
   const [dirty, setDirty] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<'success' | 'error'>('success')
+  // 模型下拉：接口返回的列表、加载态、错误提示，以及手动输入的开关
+  const [models, setModels] = useState<string[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState('')
+  const [manualModel, setManualModel] = useState(false)
+  const modelsRequestId = useRef(0)
+  const lastModelQuery = useRef('')
 
   useEffect(() => {
-    loadConfig()
+    async function load(): Promise<void> {
+      try {
+        const result = await window.api.getConfig()
+        setConfig(result as Config)
+        const backend = await window.api.getActiveBackend()
+        setActiveBackend(backend as string)
+      } catch (err) {
+        console.error('Failed to load config:', err)
+      }
+    }
+    void load()
   }, [])
 
-  async function loadConfig(): Promise<void> {
-    try {
-      const result = await window.api.getConfig()
-      setConfig(result as Config)
-      const backend = await window.api.getActiveBackend()
-      setActiveBackend(backend as string)
-    } catch (err) {
-      console.error('Failed to load config:', err)
+  /** 按当前表单参数拉取 /models；同一组参数不重复请求，force 用于手动刷新 */
+  const fetchModels = useCallback(async (query: ModelQuery, force = false): Promise<void> => {
+    const signature = `${query.baseUrl}\n${query.apiKey}\n${query.customHeaders}`
+    if (!force && lastModelQuery.current === signature) return
+
+    if (!query.apiKey.trim() || !query.baseUrl.trim()) {
+      lastModelQuery.current = signature
+      setModels([])
+      setModelsError('请先填写 API Key 和 Base URL')
+      return
     }
+
+    lastModelQuery.current = signature
+    const requestId = ++modelsRequestId.current
+    setModelsLoading(true)
+    setModelsError('')
+    try {
+      const list = await window.api.listModels(query)
+      // 慢请求返回时表单可能已改，丢弃过期结果
+      if (requestId !== modelsRequestId.current) return
+      setModels(list)
+      if (list.length === 0) setModelsError('接口未返回可用的模型列表')
+    } catch (err) {
+      if (requestId !== modelsRequestId.current) return
+      setModels([])
+      setModelsError(describeError(err))
+    } finally {
+      if (requestId === modelsRequestId.current) setModelsLoading(false)
+    }
+  }, [])
+
+  const modelQuery: ModelQuery = {
+    apiKey: config?.analysis.apiKey ?? '',
+    baseUrl: config?.analysis.baseUrl ?? '',
+    customHeaders: config?.analysis.customHeaders ?? ''
   }
+  const { apiKey, baseUrl, customHeaders } = modelQuery
+  const hasConfig = config !== null
+
+  // 填完 API Key / Base URL 后自动拉取一次；输入过程中用防抖收敛请求
+  useEffect(() => {
+    if (!hasConfig || !apiKey.trim() || !baseUrl.trim()) return
+    const timer = window.setTimeout(() => {
+      void fetchModels({ apiKey, baseUrl, customHeaders })
+    }, MODELS_FETCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [hasConfig, apiKey, baseUrl, customHeaders, fetchModels])
 
   async function handleSave(): Promise<void> {
     if (!config) return
@@ -147,6 +214,16 @@ export function Settings(): React.JSX.Element {
       </div>
     )
   }
+
+  const currentModel = config.analysis.model ?? ''
+  const useModelSelect = models.length > 0 && !manualModel
+  const modelHint = modelsLoading
+    ? '正在获取可用模型…'
+    : modelsError
+      ? `${modelsError}，也可手动填写模型名`
+      : models.length > 0
+        ? `已获取 ${models.length} 个可用模型`
+        : '填写 API Key 与 Base URL 后自动获取可用模型，也可手动填写'
 
   const scheduleDateMode = config.analysis.scheduleDateMode ?? 'auto'
   const monitoringAllDay = config.monitoring.monitoringAllDay ?? true
@@ -231,14 +308,61 @@ export function Settings(): React.JSX.Element {
             <label className="field-label" htmlFor="model">
               模型
             </label>
-            <input
-              id="model"
-              className="input"
-              type="text"
-              placeholder="gpt-4o-mini"
-              value={config.analysis.model}
-              onChange={(e) => updateAnalysis('model', e.target.value)}
-            />
+            <div className="inline-fields">
+              {useModelSelect ? (
+                <select
+                  id="model"
+                  className="input"
+                  value={currentModel}
+                  onChange={(e) => updateAnalysis('model', e.target.value)}
+                >
+                  {!currentModel && <option value="">请选择模型</option>}
+                  {currentModel && !models.includes(currentModel) && (
+                    <option value={currentModel}>{currentModel}（当前值，接口未返回）</option>
+                  )}
+                  {models.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="model"
+                  className="input"
+                  type="text"
+                  placeholder="gpt-4o-mini"
+                  value={currentModel}
+                  onChange={(e) => updateAnalysis('model', e.target.value)}
+                />
+              )}
+              <button
+                type="button"
+                className="button button-secondary model-refresh"
+                disabled={modelsLoading}
+                title="重新获取可用模型"
+                onClick={() => void fetchModels(modelQuery, true)}
+              >
+                {modelsLoading ? <span className="spinner" /> : <Icon name="refresh" size={14} />}
+                {models.length > 0 ? '刷新' : '获取模型'}
+              </button>
+            </div>
+            <div className="field-hint-row">
+              <span
+                className={`field-hint${modelsError && !modelsLoading ? ' field-hint-error' : ''}`}
+              >
+                {modelHint}
+              </span>
+              {models.length > 0 && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setManualModel(!manualModel)}
+                >
+                  {manualModel ? '从列表选择' : '手动输入'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="field">
