@@ -144,14 +144,21 @@ jobs:
             dist/*.deb
           if-no-files-found: error
 
-  # 每次 main/master 构建（含手动触发）都把产物发布到固定的 nightly Release，可直接下载
-  release-nightly:
+  # 每次成功的构建（分支 push / PR / 手动触发）都把产物发布到 Release。
+  # tag 按分支或 PR 固定，同名安装包被最新一次构建覆盖，下载链接长期不变。
+  # 推送 v* tag 时不走这里，由下面的 release 任务发正式版。
+  # fork PR 的 GITHUB_TOKEN 只有读权限、无法创建 tag，跳过发布（artifacts 仍照常上传）。
+  release-continuous:
     needs: [build-windows, build-linux-arm64]
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main' ||
-      github.ref == 'refs/heads/master'
+      !startsWith(github.ref, 'refs/tags/v') &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
+    # 同一分支/PR 的多次构建串行发布，避免并发运行互相覆盖同一批 assets
+    concurrency:
+      group: release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+      cancel-in-progress: false
     steps:
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
@@ -165,19 +172,39 @@ jobs:
           name: linux-arm64-build
           path: dist
 
-      - name: Publish to nightly release
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            label="PR #${{ github.event.pull_request.number }}"
+            slug="pr-${{ github.event.pull_request.number }}"
+          else
+            label="${GITHUB_REF_NAME}"
+            slug=$(printf '%s' "$label" | tr -c 'A-Za-z0-9._-' '-')
+          fi
+          {
+            echo "label=$label"
+            echo "tag=continuous-$slug"
+            echo "built_at=$(date -u '+%Y-%m-%d %H:%M UTC')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish to continuous release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nightly
-          name: Nightly Build (${{ github.ref_name }})
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Auto Build (${{ steps.meta.outputs.label }})
           body: |
-            最新构建（未发版，可能不稳定）
+            每次构建自动生成，同名安装包会被最新一次构建覆盖（未发版，可能不稳定）。
             - 框架：Tauri 2
-            - 分支：${{ github.ref_name }}
-            - 提交：${{ github.sha }}
+            - 来源：${{ steps.meta.outputs.label }}
+            - 提交：${{ github.event.pull_request.head.sha || github.sha }}
+            - 构建时间：${{ steps.meta.outputs.built_at }}
+            - 运行记录：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
             - Windows 便携版需要系统自带 WebView2 运行时（Win10 1803+ 默认内置）
           prerelease: true
           make_latest: false
+          overwrite_files: true
           files: |
             dist/*.exe
             dist/*.deb

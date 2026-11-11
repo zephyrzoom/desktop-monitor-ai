@@ -38,3 +38,11 @@
 - 界面展示：侧边栏底部 `version-badge` + 配置页「关于」卡片；
   版本经 `vite define` 的 `__APP_VERSION__` / `__BUILD_TIME__` 注入，
   统一从 `src/renderer/src/lib/version.ts` 取。
+
+## CI 发布约定（2026-11-11 确立）
+
+- `.github/workflows/build.yml`：每次成功构建（分支 push / PR / 手动触发）都把
+  Windows 便携 exe + Linux arm64 deb 发布到预发布 Release；tag 按来源固定，
+  `continuous-<branch>` / `continuous-pr-<n>`，同名 assets 覆盖更新、下载链接不变。
+- 推送 `v*` tag 时改走 `release` job 发正式版；fork PR 因 token 只读跳过发布。
+- 旧的 `nightly` Release 已弃用（不再自动更新）。
