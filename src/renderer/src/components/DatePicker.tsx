@@ -9,8 +9,6 @@ interface DatePickerProps {
   markedDates?: Set<string>
   /** 正在分析的日期，会在日历格子上显示转圈标记 */
   analyzingDate?: string | null
-  /** 分析进行中：锁定日期切换，避免误以为可以同时分析多天 */
-  disabled?: boolean
 }
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
@@ -42,8 +40,7 @@ export function DatePicker({
   value,
   onChange,
   markedDates,
-  analyzingDate,
-  disabled = false
+  analyzingDate
 }: DatePickerProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState(() => {
@@ -74,7 +71,6 @@ export function DatePicker({
   const cells = useMemo(() => buildMonthGrid(view.year, view.month), [view.year, view.month])
 
   function toggle(): void {
-    if (disabled) return
     if (!open) {
       // 每次打开都回到选中日期所在的月份
       const date = parseDate(value)
@@ -101,10 +97,8 @@ export function DatePicker({
         type="button"
         className={`date-picker-trigger${open ? ' open' : ''}`}
         onClick={toggle}
-        disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title={disabled ? '分析进行中，完成后才能切换日期' : undefined}
       >
         <Icon name="calendar" size={15} />
         <span className="date-picker-value">{value}</span>
@@ -165,7 +159,6 @@ export function DatePicker({
                   key={cell}
                   className={classes}
                   onClick={() => select(cell)}
-                  disabled={disabled}
                   title={
                     isAnalyzing ? `${cell} · 正在分析` : hasReport ? `${cell} · 已有日报` : cell
                   }
@@ -190,12 +183,7 @@ export function DatePicker({
                 分析中
               </span>
             )}
-            <button
-              type="button"
-              className="calendar-today"
-              onClick={() => select(today)}
-              disabled={disabled}
-            >
+            <button type="button" className="calendar-today" onClick={() => select(today)}>
               回到今天
             </button>
           </div>

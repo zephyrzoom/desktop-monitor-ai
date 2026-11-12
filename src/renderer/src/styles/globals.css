@@ -345,18 +345,10 @@ a {
   white-space: nowrap;
 }
 
-/* 分析进行中禁用日期切换等触发入口，避免误以为可并行分析 */
-.date-picker-trigger:disabled,
-.calendar-day:disabled,
-.pill:disabled,
-.calendar-today:disabled,
+/* 分析进行中只挡住「发起分析」的入口，浏览日报与切换日期不受影响 */
 .menu-item:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}
-
-.calendar-day:disabled:not(.is-selected):hover {
-  background-color: transparent;
 }
 
 .main {

@@ -213,7 +213,6 @@ export function DailyReport(): React.JSX.Element {
             onChange={setSelectedDate}
             markedDates={analyzedDates}
             analyzingDate={analyzingDate}
-            disabled={busy}
           />
           {allAnalyses.length > 0 && (
             <>
@@ -226,7 +225,6 @@ export function DailyReport(): React.JSX.Element {
                     key={a.date}
                     className={`pill${a.date === selectedDate ? ' active' : ''}`}
                     onClick={() => setSelectedDate(a.date)}
-                    disabled={busy}
                     title={formatDateLabel(a.date)}
                   >
                     {a.date.slice(5)}
