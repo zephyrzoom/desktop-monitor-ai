@@ -404,37 +404,6 @@ export function Settings(): React.JSX.Element {
             </div>
           </div>
 
-          <div className="field">
-            <label className="field-label" htmlFor="scheduleTime">
-              每日分析时间
-            </label>
-            <input
-              id="scheduleTime"
-              className="input input-time"
-              type="time"
-              value={config.analysis.scheduleTime}
-              onChange={(e) => updateAnalysis('scheduleTime', e.target.value)}
-            />
-            <span className="field-hint">每天到点自动生成日报</span>
-          </div>
-
-          <div className="field">
-            <label className="field-label" htmlFor="scheduleDateMode">
-              分析日期
-            </label>
-            <select
-              id="scheduleDateMode"
-              className="input"
-              value={scheduleDateMode}
-              onChange={(e) => updateAnalysis('scheduleDateMode', e.target.value)}
-            >
-              <option value="auto">自动（06:00 前分析前一天）</option>
-              <option value="today">当天</option>
-              <option value="previous">前一天</option>
-            </select>
-            <span className="field-hint">{scheduleDateHint}</span>
-          </div>
-
           <div className="field field-full">
             <label className="field-label" htmlFor="customHeaders">
               自定义请求头
@@ -540,67 +509,102 @@ export function Settings(): React.JSX.Element {
 
         <p className="form-divider">分析参数</p>
 
-        <div className="form-grid form-grid-3">
-          <div className="field">
-            <label className="field-label" htmlFor="maxScreenshotsPerBatch">
-              每批最大截图数
-            </label>
-            <input
-              id="maxScreenshotsPerBatch"
-              className="input input-num"
-              type="number"
-              min={1}
-              max={30}
-              value={config.analysis.maxScreenshotsPerBatch}
-              onChange={(e) => updateAnalysis('maxScreenshotsPerBatch', parseInt(e.target.value))}
-            />
+        <div className="analysis-params">
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="scheduleTime">
+                每日分析时间
+              </label>
+              <input
+                id="scheduleTime"
+                className="input input-time"
+                type="time"
+                value={config.analysis.scheduleTime}
+                onChange={(e) => updateAnalysis('scheduleTime', e.target.value)}
+              />
+              <span className="field-hint">每天到点自动生成日报</span>
+            </div>
+
+            <div className="field">
+              <label className="field-label" htmlFor="scheduleDateMode">
+                分析日期
+              </label>
+              <select
+                id="scheduleDateMode"
+                className="input"
+                value={scheduleDateMode}
+                onChange={(e) => updateAnalysis('scheduleDateMode', e.target.value)}
+              >
+                <option value="auto">自动（06:00 前分析前一天）</option>
+                <option value="today">当天</option>
+                <option value="previous">前一天</option>
+              </select>
+              <span className="field-hint">{scheduleDateHint}</span>
+            </div>
           </div>
 
-          <div className="field">
-            <label className="field-label" htmlFor="gapThresholdMinutes">
-              分批间隔（分钟）
-            </label>
-            <input
-              id="gapThresholdMinutes"
-              className="input input-num"
-              type="number"
-              min={5}
-              max={60}
-              value={config.analysis.gapThresholdMinutes}
-              onChange={(e) => updateAnalysis('gapThresholdMinutes', parseInt(e.target.value))}
-            />
-          </div>
+          <div className="form-grid form-grid-3">
+            <div className="field">
+              <label className="field-label" htmlFor="maxScreenshotsPerBatch">
+                每批最大截图数
+              </label>
+              <input
+                id="maxScreenshotsPerBatch"
+                className="input input-num"
+                type="number"
+                min={1}
+                max={30}
+                value={config.analysis.maxScreenshotsPerBatch}
+                onChange={(e) => updateAnalysis('maxScreenshotsPerBatch', parseInt(e.target.value))}
+              />
+            </div>
 
-          <div className="field">
-            <label className="field-label" htmlFor="maxRetries">
-              API 重试次数
-            </label>
-            <input
-              id="maxRetries"
-              className="input input-num"
-              type="number"
-              min={0}
-              max={10}
-              value={config.analysis.maxRetries ?? 3}
-              onChange={(e) => updateAnalysis('maxRetries', parseInt(e.target.value))}
-            />
-            <span className="field-hint">超时或返回为空时的重试次数</span>
-          </div>
+            <div className="field">
+              <label className="field-label" htmlFor="gapThresholdMinutes">
+                分批间隔（分钟）
+              </label>
+              <input
+                id="gapThresholdMinutes"
+                className="input input-num"
+                type="number"
+                min={5}
+                max={60}
+                value={config.analysis.gapThresholdMinutes}
+                onChange={(e) => updateAnalysis('gapThresholdMinutes', parseInt(e.target.value))}
+              />
+            </div>
 
-          <div className="field">
-            <label className="field-label" htmlFor="taskMemoryDays">
-              任务记忆回溯天数
-            </label>
-            <input
-              id="taskMemoryDays"
-              className="input input-num"
-              type="number"
-              min={1}
-              max={30}
-              value={config.analysis.taskMemoryDays}
-              onChange={(e) => updateAnalysis('taskMemoryDays', parseInt(e.target.value))}
-            />
-            <span className="field-hint">回溯最近 N 天，识别跨天延续的任务</span>
+            <div className="field">
+              <label className="field-label" htmlFor="maxRetries">
+                API 重试次数
+              </label>
+              <input
+                id="maxRetries"
+                className="input input-num"
+                type="number"
+                min={0}
+                max={10}
+                value={config.analysis.maxRetries ?? 3}
+                onChange={(e) => updateAnalysis('maxRetries', parseInt(e.target.value))}
+              />
+              <span className="field-hint">超时或返回为空时的重试次数</span>
+            </div>
+
+            <div className="field">
+              <label className="field-label" htmlFor="taskMemoryDays">
+                任务记忆回溯天数
+              </label>
+              <input
+                id="taskMemoryDays"
+                className="input input-num"
+                type="number"
+                min={1}
+                max={30}
+                value={config.analysis.taskMemoryDays}
+                onChange={(e) => updateAnalysis('taskMemoryDays', parseInt(e.target.value))}
+              />
+              <span className="field-hint">回溯最近 N 天，识别跨天延续的任务</span>
+            </div>
           </div>
         </div>
       </section>

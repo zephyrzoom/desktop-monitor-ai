@@ -1073,6 +1073,13 @@ a {
   margin-top: 18px;
 }
 
+/* 分析参数里的两组表单：调度设置用两列、数值参数用自适应列，组间留白与网格 gap 一致 */
+.analysis-params {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
