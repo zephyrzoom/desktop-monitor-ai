@@ -345,6 +345,30 @@ a {
   white-space: nowrap;
 }
 
+.analysis-indicator-cancel {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 2px 7px;
+  border: 1px solid var(--accent-ring);
+  border-radius: 6px;
+  background-color: var(--surface);
+  color: var(--accent-fg);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.14s ease;
+}
+
+.analysis-indicator-cancel:hover:not(:disabled) {
+  background-color: var(--accent-soft);
+}
+
+.analysis-indicator-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* 分析进行中只挡住「发起分析」的入口，浏览日报与切换日期不受影响 */
 .menu-item:disabled {
   opacity: 0.55;
@@ -1390,12 +1414,24 @@ select.input {
   min-width: 0;
 }
 
-.progress-count {
+/* 计数与取消按钮统一右对齐，避免两个 auto margin 把计数挤到中间 */
+.progress-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   margin-left: auto;
+  flex-shrink: 0;
+}
+
+.progress-count {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+}
+
+.progress-cancel {
+  flex-shrink: 0;
 }
 
 .progress-step {
@@ -1921,6 +1957,11 @@ select.input {
   .analysis-indicator {
     padding: 7px;
     margin-bottom: 0;
+  }
+
+  /* 侧边栏收窄后放不下取消按钮，页面里的进度面板仍可取消 */
+  .analysis-indicator-cancel {
+    display: none;
   }
 
   .brand {

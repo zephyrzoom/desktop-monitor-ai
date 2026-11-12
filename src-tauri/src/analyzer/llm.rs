@@ -6,6 +6,8 @@ use serde_json::{json, Value};
 use crate::logger;
 use crate::runtime::Runtime;
 
+use super::CANCELLED;
+
 const REQUEST_TIMEOUT_SECS: u64 = 300;
 /// 模型列表只是配置页的一次探测，超时不宜拖住界面
 const MODELS_TIMEOUT_SECS: u64 = 15;
@@ -195,18 +197,33 @@ pub async fn chat(
     let mut last_error = String::from("未知错误");
 
     for attempt in 1..=attempts {
-        let result = client
-            .post(url.as_str())
-            .headers(headers.clone())
-            .json(&body)
-            .send()
-            .await;
+        if rt.is_cancelled() {
+            return Err(CANCELLED.to_string());
+        }
+
+        // select! 让用户在等模型返回时也能立刻取消，不必等这一批跑完
+        let request = async {
+            let response = client
+                .post(url.as_str())
+                .headers(headers.clone())
+                .json(&body)
+                .send()
+                .await?;
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            Ok::<_, reqwest::Error>((status, text))
+        };
+
+        let result = tokio::select! {
+            _ = rt.wait_cancelled() => {
+                logger::info(format!("[Cancel] {label} 已取消，中断当前请求"));
+                return Err(CANCELLED.to_string());
+            }
+            res = request => res,
+        };
 
         match result {
-            Ok(response) => {
-                let status = response.status();
-                let text = response.text().await.unwrap_or_default();
-
+            Ok((status, text)) => {
                 if !status.is_success() {
                     last_error = format!("HTTP {} - {}", status.as_u16(), truncate(&text, 300));
                 } else {
@@ -229,7 +246,10 @@ pub async fn chat(
                 "[Retry] {label} 第 {attempt} 次失败，{}s 后重试: {last_error}",
                 delay.as_secs()
             ));
-            tokio::time::sleep(delay).await;
+            tokio::select! {
+                _ = rt.wait_cancelled() => return Err(CANCELLED.to_string()),
+                _ = tokio::time::sleep(delay) => {}
+            }
         }
     }
 

@@ -17,6 +17,8 @@ interface AnalysisContextValue {
   busy: boolean
   /** 当前任务的中文描述，用于全局「正在分析」提示 */
   busyLabel: string | null
+  /** 已请求取消，任务正在收尾 */
+  cancelling: boolean
   // Actions
   triggerAnalysis: (date: string) => Promise<void>
   /** days 为 null 表示全部历史；范围内缺失的补上、已有的覆盖，始终不含今天 */
@@ -25,8 +27,11 @@ interface AnalysisContextValue {
     total: number
     succeeded: number
     filled: number
+    cancelled?: boolean
   } | null>
   triggerPeriodicSummary: (periodLabel: string) => Promise<void>
+  /** 手动终止当前分析任务 */
+  cancelAnalysis: () => Promise<void>
   // Completion callback registration
   onAnalysisComplete: (callback: () => void) => () => void
 }
@@ -100,6 +105,14 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
       setAnalysisProgress(null)
     })
 
+    const unsubCancelling = window.api.onAnalysisCancelling((cancelling) => {
+      eventVersionRef.current += 1
+      busyRef.current = true
+      backendStatusRef.current = cancelling
+      setStatus(cancelling)
+      setPending(null)
+    })
+
     const unsubFinished = window.api.onAnalysisFinished(() => {
       eventVersionRef.current += 1
       release()
@@ -132,6 +145,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
       disposed = true
       unsubProgress()
       unsubStarted()
+      unsubCancelling()
       unsubFinished()
       unsubResult()
       unsubSummary()
@@ -194,6 +208,17 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
     [claim, notifyComplete, release]
   )
 
+  const cancelAnalysis = useCallback(async () => {
+    // 立刻进入「取消中」，后端稍后会用 analysis:cancelling / finished 校正
+    setStatus((prev) => (prev ? { ...prev, cancelling: true } : prev))
+    setPending((prev) => (prev ? { ...prev, cancelling: true } : prev))
+    try {
+      await window.api.cancelAnalysis()
+    } catch (err) {
+      console.error('Failed to cancel analysis:', err)
+    }
+  }, [])
+
   const effective = status ?? pending
   const kind = effective?.kind
   const analyzing = kind === 'daily' || kind === 'scheduled'
@@ -209,9 +234,11 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }): R
         generatingLabel: kind === 'summary' ? (effective?.target ?? null) : null,
         busy: effective !== null,
         busyLabel: describeStatus(effective),
+        cancelling: effective?.cancelling ?? false,
         triggerAnalysis,
         triggerRerun,
         triggerPeriodicSummary,
+        cancelAnalysis,
         onAnalysisComplete
       }}
     >

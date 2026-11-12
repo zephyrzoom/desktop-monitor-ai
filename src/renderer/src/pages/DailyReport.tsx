@@ -30,6 +30,7 @@ export function DailyReport(): React.JSX.Element {
     total: number
     succeeded: number
     filled: number
+    cancelled: boolean
   } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const {
@@ -39,8 +40,10 @@ export function DailyReport(): React.JSX.Element {
     rerunning,
     busy,
     busyLabel,
+    cancelling,
     triggerAnalysis,
     triggerRerun,
+    cancelAnalysis,
     onAnalysisComplete
   } = useAnalysis()
 
@@ -105,7 +108,12 @@ export function DailyReport(): React.JSX.Element {
 
   async function runBatch(
     label: string,
-    task: () => Promise<{ total: number; succeeded: number; filled: number } | null>
+    task: () => Promise<{
+      total: number
+      succeeded: number
+      filled: number
+      cancelled?: boolean
+    } | null>
   ): Promise<void> {
     setBatchResult(null)
     const result = await task()
@@ -114,7 +122,8 @@ export function DailyReport(): React.JSX.Element {
         label,
         total: result.total,
         succeeded: result.succeeded,
-        filled: result.filled
+        filled: result.filled,
+        cancelled: result.cancelled ?? false
       })
     }
     loadAllAnalyses()
@@ -203,6 +212,8 @@ export function DailyReport(): React.JSX.Element {
               : (busyLabel ?? '正在分析')
           }
           progress={analysisProgress}
+          cancelling={cancelling}
+          onCancel={() => void cancelAnalysis()}
         />
       )}
 
@@ -239,22 +250,26 @@ export function DailyReport(): React.JSX.Element {
       {batchResult && !batchBusy && (
         <Alert
           tone={
-            batchResult.total === 0
-              ? 'info'
-              : batchResult.succeeded === batchResult.total
-                ? 'success'
-                : 'warning'
+            batchResult.cancelled
+              ? 'warning'
+              : batchResult.total === 0
+                ? 'info'
+                : batchResult.succeeded === batchResult.total
+                  ? 'success'
+                  : 'warning'
           }
         >
-          {batchResult.total === 0
-            ? `${batchResult.label}：今天之前没有需要处理的日期`
-            : `${batchResult.label}完成：共 ${batchResult.total} 天（补算 ${batchResult.filled} 天，重写 ${
-                batchResult.total - batchResult.filled
-              } 天），成功 ${batchResult.succeeded} 天${
-                batchResult.succeeded < batchResult.total
-                  ? `，失败 ${batchResult.total - batchResult.succeeded} 天`
-                  : ''
-              }`}
+          {batchResult.cancelled
+            ? `${batchResult.label}已取消：完成 ${batchResult.succeeded}/${batchResult.total} 天，已完成的部分已保存`
+            : batchResult.total === 0
+              ? `${batchResult.label}：今天之前没有需要处理的日期`
+              : `${batchResult.label}完成：共 ${batchResult.total} 天（补算 ${batchResult.filled} 天，重写 ${
+                  batchResult.total - batchResult.filled
+                } 天），成功 ${batchResult.succeeded} 天${
+                  batchResult.succeeded < batchResult.total
+                    ? `，失败 ${batchResult.total - batchResult.succeeded} 天`
+                    : ''
+                }`}
         </Alert>
       )}
 

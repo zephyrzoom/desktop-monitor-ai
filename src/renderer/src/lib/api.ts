@@ -16,6 +16,8 @@ export interface AnalysisProgressPayload {
 export interface AnalysisStatusPayload {
   kind: 'daily' | 'rerun' | 'summary' | 'scheduled'
   target: string
+  /** 已请求取消，任务正在收尾 */
+  cancelling?: boolean
 }
 
 /** 设置页当前表单里的 AI 接口参数（可能尚未保存） */
@@ -31,6 +33,8 @@ export interface RerunResult {
   succeeded: number
   /** 其中原本没有日报、本次补上的天数（其余为覆盖重写） */
   filled: number
+  /** 用户中途取消，已完成的日期仍然有效 */
+  cancelled?: boolean
 }
 
 /**
@@ -74,6 +78,8 @@ export const api = {
   // AI 分析
   /** 查询后端当前任务，窗口重载后也能恢复「正在分析」的显示 */
   getAnalysisStatus: () => invoke<AnalysisStatusPayload | null>('analysis_status'),
+  /** 手动终止当前分析；已完成的部分保留，不会写入半成品日报 */
+  cancelAnalysis: () => invoke<{ status: string }>('analysis_cancel'),
   triggerAnalysis: (date: string) =>
     invoke<{ status: string; date: string }>('analysis_trigger', { date }),
   /** 批量补算/重算：days 为 null 表示全部历史；范围内缺失的补上、已有的覆盖 */
@@ -85,6 +91,9 @@ export const api = {
   /** 任务生命周期：前端据此锁定所有触发入口，定时分析也能被看见 */
   onAnalysisStarted: (callback: (status: AnalysisStatusPayload) => void) =>
     subscribe<AnalysisStatusPayload>('analysis:started', callback),
+  /** 用户已请求取消，任务正在收尾 */
+  onAnalysisCancelling: (callback: (status: AnalysisStatusPayload) => void) =>
+    subscribe<AnalysisStatusPayload>('analysis:cancelling', callback),
   onAnalysisFinished: (callback: (status: AnalysisStatusPayload | null) => void) =>
     subscribe<AnalysisStatusPayload | null>('analysis:finished', callback),
   onAnalysisComplete: (callback: (date: string) => void) =>

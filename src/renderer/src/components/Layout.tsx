@@ -37,7 +37,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
 export function Layout({ children }: LayoutProps): React.JSX.Element {
   const location = useLocation()
   const buildTime = getBuildTime()
-  const { busy, busyLabel } = useAnalysis()
+  const { busy, busyLabel, cancelling, cancelAnalysis } = useAnalysis()
 
   return (
     <div className="app-shell">
@@ -83,7 +83,18 @@ export function Layout({ children }: LayoutProps): React.JSX.Element {
               title={busyLabel ?? undefined}
             >
               <span className="spinner" aria-hidden="true" />
-              <span className="analysis-indicator-text">{busyLabel ?? '正在分析'}</span>
+              <span className="analysis-indicator-text">
+                {cancelling ? '正在取消…' : (busyLabel ?? '正在分析')}
+              </span>
+              <button
+                type="button"
+                className="analysis-indicator-cancel"
+                onClick={() => void cancelAnalysis()}
+                disabled={cancelling}
+                title="终止当前分析，已完成的部分会保留"
+              >
+                {cancelling ? '取消中' : '取消'}
+              </button>
             </div>
           )}
           <span className="version-badge" title={buildTime ? `构建于 ${buildTime}` : undefined}>

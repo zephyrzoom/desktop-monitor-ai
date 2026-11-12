@@ -118,6 +118,21 @@ pub fn analysis_status(runtime: State<'_, Arc<Runtime>>) -> Value {
     }
 }
 
+/// 取消当前分析任务；没有任务在跑时返回 idle，便于前端忽略重复点击。
+#[tauri::command]
+pub fn analysis_cancel(runtime: State<'_, Arc<Runtime>>) -> Value {
+    match runtime.request_cancel() {
+        Some(status) => {
+            logger::info(format!(
+                "[AnalysisCancel] 已请求取消 {} {}",
+                status.kind, status.target
+            ));
+            json!({ "status": "cancelling" })
+        }
+        None => json!({ "status": "idle" }),
+    }
+}
+
 #[tauri::command]
 pub async fn analysis_trigger(
     runtime: State<'_, Arc<Runtime>>,
@@ -136,6 +151,9 @@ pub async fn analysis_trigger(
     match result {
         Ok(Some(_)) => Ok(json!({ "status": "completed", "date": date })),
         Ok(None) => Ok(json!({ "status": "failed", "date": date })),
+        Err(err) if analyzer::is_cancelled_error(&err) => {
+            Ok(json!({ "status": "cancelled", "date": date }))
+        }
         Err(err) => {
             logger::error(format!("分析触发失败：{err}"));
             Ok(json!({ "status": "failed", "date": date }))
@@ -162,10 +180,11 @@ pub async fn analysis_rerun(
     runtime.end_analysis();
 
     Ok(json!({
-        "status": "completed",
+        "status": if outcome.cancelled { "cancelled" } else { "completed" },
         "total": outcome.total,
         "succeeded": outcome.succeeded,
-        "filled": outcome.filled
+        "filled": outcome.filled,
+        "cancelled": outcome.cancelled
     }))
 }
 
@@ -195,6 +214,9 @@ pub async fn summary_trigger(
     match result {
         Ok(true) => Ok(json!({ "status": "completed", "periodLabel": period_label })),
         Ok(false) => Ok(json!({ "status": "failed", "periodLabel": period_label })),
+        Err(err) if analyzer::is_cancelled_error(&err) => {
+            Ok(json!({ "status": "cancelled", "periodLabel": period_label }))
+        }
         Err(err) => {
             logger::error(format!("周期汇总失败：{err}"));
             Ok(json!({ "status": "failed", "periodLabel": period_label }))

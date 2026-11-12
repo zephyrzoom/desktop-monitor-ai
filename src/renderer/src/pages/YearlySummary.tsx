@@ -23,8 +23,15 @@ export function YearlySummary(): React.JSX.Element {
   const [summary, setSummary] = useState<PeriodicSummary | null>(null)
   const [allSummaries, setAllSummaries] = useState<PeriodicSummary[]>([])
   const [loading, setLoading] = useState(false)
-  const { generating, generatingLabel, busy, triggerPeriodicSummary, onAnalysisComplete } =
-    useAnalysis()
+  const {
+    generating,
+    generatingLabel,
+    busy,
+    cancelling,
+    triggerPeriodicSummary,
+    cancelAnalysis,
+    onAnalysisComplete
+  } = useAnalysis()
 
   useEffect(() => {
     loadAllSummaries()
@@ -137,6 +144,8 @@ export function YearlySummary(): React.JSX.Element {
         <ProgressPanel
           label={`正在生成 ${generatingLabel ?? selectedYear} 年度汇总`}
           progress={null}
+          cancelling={cancelling}
+          onCancel={() => void cancelAnalysis()}
         />
       )}
 

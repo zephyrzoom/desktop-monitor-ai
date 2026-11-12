@@ -44,8 +44,16 @@ export function Today(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [appUsageExpanded, setAppUsageExpanded] = useState(false)
   const [today, setToday] = useState(getTodayStr)
-  const { analyzing, analyzingDate, analysisProgress, busy, triggerAnalysis, onAnalysisComplete } =
-    useAnalysis()
+  const {
+    analyzing,
+    analyzingDate,
+    analysisProgress,
+    busy,
+    cancelling,
+    triggerAnalysis,
+    cancelAnalysis,
+    onAnalysisComplete
+  } = useAnalysis()
 
   useEffect(() => {
     loadData(today)
@@ -240,7 +248,12 @@ export function Today(): React.JSX.Element {
       )}
 
       {analyzing && analyzingDate === today && (
-        <ProgressPanel label="正在分析今日工作" progress={analysisProgress} />
+        <ProgressPanel
+          label="正在分析今日工作"
+          progress={analysisProgress}
+          cancelling={cancelling}
+          onCancel={() => void cancelAnalysis()}
+        />
       )}
 
       {analysisResult ? (

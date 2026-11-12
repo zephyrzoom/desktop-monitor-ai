@@ -23,6 +23,13 @@ const BACKFILL_DAYS: i64 = 30;
 const MAX_IMAGE_WIDTH: u32 = 1280;
 const JPEG_QUALITY: u8 = 80;
 
+/// 用户主动取消分析时的统一错误文案，调用方据此与真实失败区分。
+pub const CANCELLED: &str = "分析已取消";
+
+pub fn is_cancelled_error(message: &str) -> bool {
+    message == CANCELLED
+}
+
 fn emit_progress(rt: &Runtime, step: impl Into<String>, current: usize, total: usize) {
     rt.emit(
         "analysis:status",
@@ -303,6 +310,7 @@ async fn analyze_batch(
             ));
             parse_analysis_result(&text)
         }
+        Err(err) if is_cancelled_error(&err) => None,
         Err(err) => {
             logger::error(format!("AI analysis batch error: {err}"));
             None
@@ -337,6 +345,7 @@ async fn consolidate_work_items(rt: &Arc<Runtime>, items: &[WorkItem]) -> Vec<Wo
             ));
             merged
         }
+        Err(err) if is_cancelled_error(&err) => items.to_vec(),
         Err(err) => {
             logger::error(format!("Work items consolidation error: {err}"));
             items.to_vec()
@@ -357,6 +366,7 @@ async fn update_task_memories(
     let prompt = prompts::build_task_memory_update_prompt(work_items, memories);
     let text = match llm::chat(rt, Value::String(prompt), 1500, "updateTaskMemories").await {
         Ok(text) => text,
+        Err(err) if is_cancelled_error(&err) => return,
         Err(err) => {
             logger::error(format!("Task memory update error: {err}"));
             return;
@@ -465,6 +475,7 @@ async fn generate_overall_summary(
                 _ => vec!["无法生成工作总结".to_string()],
             }
         }
+        Err(err) if is_cancelled_error(&err) => Vec::new(),
         Err(err) => {
             logger::error(format!("Summary generation error: {err}"));
             vec!["工作总结生成失败".to_string()]
@@ -472,11 +483,22 @@ async fn generate_overall_summary(
     }
 }
 
+/// 取消检查点：分析只在这些位置退出，不会写入半成品日报。
+fn ensure_running(rt: &Runtime, label: &str) -> Result<(), String> {
+    if rt.is_cancelled() {
+        logger::info(format!("[DailyAnalyzer] {label} 已取消，停止后续步骤"));
+        return Err(CANCELLED.to_string());
+    }
+    Ok(())
+}
+
 /// 分析指定日期：分批读图 → 合并同类项 → 更新任务记忆 → 生成总结，并写入日报表。
 pub async fn analyze_daily(
     rt: &Arc<Runtime>,
     date: &str,
 ) -> Result<Option<DailyAnalysisResult>, String> {
+    ensure_running(rt, date)?;
+
     let mut screenshots = rt.db.screenshots_by_date(date)?;
     if screenshots.is_empty() {
         logger::info(format!("[DailyAnalyzer] {date} 无截图数据，跳过分析"));
@@ -518,6 +540,8 @@ pub async fn analyze_daily(
     let mut all_items: Vec<WorkItem> = Vec::new();
 
     for (index, batch) in batches.iter().enumerate() {
+        ensure_running(rt, date)?;
+
         emit_progress(
             rt,
             format!("正在分析第 {}/{} 批...", index + 1, batches.len()),
@@ -545,6 +569,8 @@ pub async fn analyze_daily(
         }
     }
 
+    ensure_running(rt, date)?;
+
     if all_items.is_empty() {
         logger::warn(format!("[DailyAnalyzer] {date} 未识别出任何工作内容"));
         return Ok(None);
@@ -554,12 +580,17 @@ pub async fn analyze_daily(
 
     emit_progress(rt, "正在合并同类工作内容...", 0, 0);
     let consolidated = consolidate_work_items(rt, &all_items).await;
+    ensure_running(rt, date)?;
 
     emit_progress(rt, "正在更新任务记忆...", 0, 0);
     update_task_memories(rt, &consolidated, &memories, date).await;
+    ensure_running(rt, date)?;
 
     emit_progress(rt, "正在生成工作总结...", 0, 0);
     let summary = generate_overall_summary(rt, &consolidated, &app_usage).await;
+
+    // 最后一道检查：取消时不落库，保留该日期原有的日报
+    ensure_running(rt, date)?;
 
     let result = DailyAnalysisResult {
         work_items: consolidated,
@@ -808,10 +839,16 @@ async fn backfill_range(rt: &Arc<Runtime>, start: &str, end: &str) {
     ));
 
     for (index, date) in missing.iter().enumerate() {
+        if rt.is_cancelled() {
+            logger::info("[AnalysisScheduler] 补生成已取消");
+            return;
+        }
+
         emit_progress(rt, format!("正在补生成 {date}"), index + 1, missing.len());
         match analyze_daily(rt, date).await {
             Ok(Some(_)) => rt.emit("analysis:result", date.clone()),
             Ok(None) => {}
+            Err(err) if is_cancelled_error(&err) => return,
             Err(err) => logger::error(format!("补生成 {date} 失败：{err}")),
         }
     }
@@ -827,6 +864,8 @@ pub struct RerunOutcome {
     pub succeeded: usize,
     /// 其中原本没有日报、本次补上的日期数（其余为覆盖重写）
     pub filled: usize,
+    /// 用户中途取消（已完成的日期仍然有效）
+    pub cancelled: bool,
 }
 
 /// 批量补算/重算日报。
@@ -854,6 +893,7 @@ pub async fn rerun_daily(rt: &Arc<Runtime>, days: Option<i64>) -> RerunOutcome {
                 total: 0,
                 succeeded: 0,
                 filled: 0,
+                cancelled: false,
             };
         }
     };
@@ -868,6 +908,7 @@ pub async fn rerun_daily(rt: &Arc<Runtime>, days: Option<i64>) -> RerunOutcome {
             total: 0,
             succeeded: 0,
             filled: 0,
+            cancelled: false,
         };
     }
 
@@ -893,7 +934,13 @@ pub async fn rerun_daily(rt: &Arc<Runtime>, days: Option<i64>) -> RerunOutcome {
     ));
 
     let mut succeeded = 0;
+    let mut cancelled = false;
     for (index, date) in dates.iter().enumerate() {
+        if rt.is_cancelled() {
+            cancelled = true;
+            break;
+        }
+
         let action = if existing.contains(date) { "重算" } else { "补算" };
         emit_progress(rt, format!("正在{action} {date}"), index + 1, total);
         match analyze_daily(rt, date).await {
@@ -902,20 +949,32 @@ pub async fn rerun_daily(rt: &Arc<Runtime>, days: Option<i64>) -> RerunOutcome {
                 rt.emit("analysis:result", date.clone());
             }
             Ok(None) => {}
+            Err(err) if is_cancelled_error(&err) => {
+                cancelled = true;
+                break;
+            }
             Err(err) => logger::error(format!("{action} {date} 失败：{err}")),
         }
     }
 
-    emit_progress(rt, "补算完成", total, total);
-    logger::info(format!(
-        "[AnalysisScheduler] 补算完成: {succeeded}/{total} 成功（补算 {filled} 天，重写 {} 天）",
-        total - filled
-    ));
+    if cancelled {
+        emit_progress(rt, "已取消，保留已完成的日报", succeeded, total);
+        logger::info(format!(
+            "[AnalysisScheduler] 补算已取消: 已完成 {succeeded}/{total} 天"
+        ));
+    } else {
+        emit_progress(rt, "补算完成", total, total);
+        logger::info(format!(
+            "[AnalysisScheduler] 补算完成: {succeeded}/{total} 成功（补算 {filled} 天，重写 {} 天）",
+            total - filled
+        ));
+    }
 
     RerunOutcome {
         total,
         succeeded,
         filled,
+        cancelled,
     }
 }
 
@@ -1059,14 +1118,25 @@ async fn run_scheduled(rt: Arc<Runtime>) {
     match analyze_daily(&rt, &target).await {
         Ok(Some(_)) => rt.emit("analysis:result", target.clone()),
         Ok(None) => {}
+        Err(err) if is_cancelled_error(&err) => {
+            logger::info("[AnalysisScheduler] 定时分析已取消，跳过补生成与汇总");
+            rt.end_analysis();
+            return;
+        }
         Err(err) => logger::error(format!("定时分析失败：{err}")),
     }
 
-    let start = add_days(&target, -(BACKFILL_DAYS - 1));
-    backfill_range(&rt, &start, &target).await;
+    if !rt.is_cancelled() {
+        let start = add_days(&target, -(BACKFILL_DAYS - 1));
+        backfill_range(&rt, &start, &target).await;
+    }
 
     // 日报补齐之后再看季度/年度是否该出汇总，保证汇总读到的日报是完整的
-    generate_finished_periods(&rt).await;
+    if !rt.is_cancelled() {
+        generate_finished_periods(&rt).await;
+    } else {
+        logger::info("[AnalysisScheduler] 已取消，跳过自动汇总");
+    }
 
     rt.end_analysis();
 }
