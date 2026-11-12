@@ -27,6 +27,24 @@ export type ModelQuery = {
   customHeaders: string
 }
 
+/** 模型验证参数：在接口参数之外带上当前选择的模型 */
+export type ModelValidationQuery = {
+  apiKey: string
+  baseUrl: string
+  customHeaders: string
+  model: string
+}
+
+/** 一次真实对话请求的验证结果（失败也作为正常返回，ok=false） */
+export interface ModelValidation {
+  ok: boolean
+  message: string
+  latencyMs: number
+  /** 服务端回显的实际模型名，中转服务可能映射成别的名字 */
+  model: string | null
+  httpStatus: number | null
+}
+
 export interface RerunResult {
   status: string
   total: number
@@ -108,6 +126,9 @@ export const api = {
   getActiveBackend: () => invoke<string>('storage_active_backend'),
   /** 拉取 OpenAI 兼容 /models 接口的可用模型；参数缺省时读已保存的配置 */
   listModels: (query?: ModelQuery) => invoke<string[]>('analysis_list_models', query ?? {}),
+  /** 真实调用一次对话接口，验证当前选择的模型能否正常使用 */
+  validateModel: (query: ModelValidationQuery) =>
+    invoke<ModelValidation>('analysis_validate_model', query),
 
   // 系统
   openPath: (filePath: string) => invoke<void>('system_open_path', { path: filePath }),

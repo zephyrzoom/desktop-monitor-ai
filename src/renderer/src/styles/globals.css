@@ -1234,6 +1234,76 @@ select.input {
   color: var(--danger-text);
 }
 
+/* 模型可用性验证面板 */
+.model-validation {
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background-color: var(--surface-2);
+}
+
+.model-validation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.model-validation-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.model-validation-head > .button {
+  flex-shrink: 0;
+}
+
+.model-validation-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.model-validation-result > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.model-validation-result.is-ok {
+  background-color: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.model-validation-result.is-failed {
+  background-color: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.model-validation-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.model-validation-meta {
+  font-size: 11.5px;
+  opacity: 0.82;
+  font-variant-numeric: tabular-nums;
+}
+
 /* 全天监控的只读展示，替代时间输入框 */
 .time-window-static {
   display: flex;

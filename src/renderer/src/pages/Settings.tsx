@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { Alert } from '../components/Alert'
 import { Icon } from '../components/Icon'
-import type { ModelQuery } from '../lib/api'
+import type { ModelQuery, ModelValidation, ModelValidationQuery } from '../lib/api'
 import { APP_VERSION, getBuildTime, getPlatformName } from '../lib/version'
 
 /** 自动模式下「分析前一天」的小时分界，需与 Rust 的 AUTO_PREVIOUS_DAY_HOUR 保持一致 */
@@ -11,13 +11,13 @@ const AUTO_PREVIOUS_DAY_HOUR = 6
 /** API Key / Base URL 输入后等多久自动拉取模型，避免每敲一个字符都发请求 */
 const MODELS_FETCH_DEBOUNCE_MS = 800
 
-function describeError(err: unknown): string {
+function describeError(err: unknown, fallback = '请求失败'): string {
   if (typeof err === 'string') return err
   if (err instanceof Error) return err.message
   if (err && typeof err === 'object' && 'message' in err) {
     return String((err as { message: unknown }).message)
   }
-  return '获取模型列表失败'
+  return fallback
 }
 
 /** 定时任务到点后实际分析的日期：auto 时按 06:00 分界推断，其余按配置值 */
@@ -78,6 +78,12 @@ export function Settings(): React.JSX.Element {
   const [manualModel, setManualModel] = useState(false)
   const modelsRequestId = useRef(0)
   const lastModelQuery = useRef('')
+  // 模型验证：结果、进行中状态、防乱序序号
+  const [validation, setValidation] = useState<ModelValidation | null>(null)
+  const [validating, setValidating] = useState(false)
+  /** 发起验证时的参数签名：表单一改，旧结果立即失效，不必额外起 effect 清状态 */
+  const [validationKey, setValidationKey] = useState('')
+  const validationRequestId = useRef(0)
 
   useEffect(() => {
     async function load(): Promise<void> {
@@ -118,7 +124,7 @@ export function Settings(): React.JSX.Element {
     } catch (err) {
       if (requestId !== modelsRequestId.current) return
       setModels([])
-      setModelsError(describeError(err))
+      setModelsError(describeError(err, '获取模型列表失败'))
     } finally {
       if (requestId === modelsRequestId.current) setModelsLoading(false)
     }
@@ -131,6 +137,32 @@ export function Settings(): React.JSX.Element {
   }
   const { apiKey, baseUrl, customHeaders } = modelQuery
   const hasConfig = config !== null
+  const currentModel = config?.analysis.model ?? ''
+
+  /** 真实调用一次对话接口，验证当前表单所选的模型 */
+  const runValidation = useCallback(async (query: ModelValidationQuery): Promise<void> => {
+    const key = `${query.baseUrl}\n${query.apiKey}\n${query.customHeaders}\n${query.model}`
+    const requestId = ++validationRequestId.current
+    setValidationKey(key)
+    setValidating(true)
+    setValidation(null)
+    try {
+      const result = await window.api.validateModel(query)
+      if (requestId === validationRequestId.current) setValidation(result)
+    } catch (err) {
+      if (requestId === validationRequestId.current) {
+        setValidation({
+          ok: false,
+          message: describeError(err, '验证模型失败'),
+          latencyMs: 0,
+          model: null,
+          httpStatus: null
+        })
+      }
+    } finally {
+      if (requestId === validationRequestId.current) setValidating(false)
+    }
+  }, [])
 
   // 填完 API Key / Base URL 后自动拉取一次；输入过程中用防抖收敛请求
   useEffect(() => {
@@ -173,10 +205,7 @@ export function Settings(): React.JSX.Element {
     setDirty(true)
   }
 
-  function updateAnalysis(
-    key: keyof Config['analysis'],
-    value: string | number | boolean
-  ): void {
+  function updateAnalysis(key: keyof Config['analysis'], value: string | number | boolean): void {
     if (!config) return
     setConfig({
       ...config,
@@ -215,8 +244,18 @@ export function Settings(): React.JSX.Element {
     )
   }
 
-  const currentModel = config.analysis.model ?? ''
   const useModelSelect = models.length > 0 && !manualModel
+  const canValidate = Boolean(apiKey.trim() && baseUrl.trim() && currentModel.trim())
+  const currentValidationKey = `${baseUrl}\n${apiKey}\n${customHeaders}\n${currentModel}`
+  const validationIsCurrent = validationKey === currentValidationKey
+  const isWaitingValidation = validating && validationIsCurrent
+  const showValidation = validation !== null && validationIsCurrent
+  const validationMeta: string[] = []
+  if (showValidation && validation) {
+    if (validation.latencyMs > 0) validationMeta.push(`${validation.latencyMs} ms`)
+    if (validation.model) validationMeta.push(`实际模型 ${validation.model}`)
+    if (validation.httpStatus != null) validationMeta.push(`HTTP ${validation.httpStatus}`)
+  }
   const modelHint = modelsLoading
     ? '正在获取可用模型…'
     : modelsError
@@ -411,6 +450,55 @@ export function Settings(): React.JSX.Element {
             <span className="field-hint">
               部分中转/企业 API 需要额外报文头。每行一条，格式 Key: Value，以 # 开头的行忽略
             </span>
+          </div>
+
+          <div className="field field-full model-validation">
+            <div className="model-validation-head">
+              <div className="model-validation-copy">
+                <span className="field-label">模型可用性验证</span>
+                <span className="field-hint">
+                  用当前表单配置向所选模型发一条最小对话请求，确认 API Key、Base URL
+                  与模型名都能正常工作；可能产生微量费用，无需先保存
+                </span>
+              </div>
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={!canValidate || isWaitingValidation}
+                title={
+                  canValidate ? '真实调用一次对话接口' : '请先填写 API Key、Base URL 并选择模型'
+                }
+                onClick={() =>
+                  void runValidation({ apiKey, baseUrl, customHeaders, model: currentModel })
+                }
+              >
+                {isWaitingValidation ? (
+                  <span className="spinner" />
+                ) : (
+                  <Icon name="play" size={14} />
+                )}
+                {isWaitingValidation ? '测试中…' : '测试模型'}
+              </button>
+            </div>
+
+            {!canValidate && (
+              <span className="field-hint">请先填写 API Key、Base URL 并选择模型</span>
+            )}
+
+            {showValidation && validation && (
+              <div className={`model-validation-result${validation.ok ? ' is-ok' : ' is-failed'}`}>
+                <Icon name={validation.ok ? 'check-circle' : 'alert'} size={15} />
+                <div className="model-validation-detail">
+                  <span className="model-validation-message">
+                    {validation.ok ? '验证通过：' : '验证失败：'}
+                    {validation.message}
+                  </span>
+                  {validationMeta.length > 0 && (
+                    <span className="model-validation-meta">{validationMeta.join(' · ')}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

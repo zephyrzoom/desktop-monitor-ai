@@ -244,6 +244,28 @@ pub async fn analysis_list_models(
     analyzer::llm::list_models(&key, &base, &headers).await
 }
 
+/// 用设置页当前表单参数真实调用一次对话接口，验证所选模型是否可用。
+///
+/// 验证失败放在 Ok 里（ok=false），不作为调用异常抛出；外层 Result 是
+/// Tauri 对含 State 引用的 async 命令的要求。
+#[tauri::command]
+pub async fn analysis_validate_model(
+    runtime: State<'_, Arc<Runtime>>,
+    api_key: Option<String>,
+    base_url: Option<String>,
+    model: Option<String>,
+    custom_headers: Option<String>,
+) -> Result<analyzer::llm::ModelValidation, String> {
+    let saved = runtime.config.analysis();
+    let key = api_key.unwrap_or(saved.api_key);
+    let base = base_url.unwrap_or(saved.base_url);
+    let selected_model = model.unwrap_or(saved.model);
+    let headers = custom_headers.unwrap_or(saved.custom_headers);
+    drop(runtime);
+
+    Ok(analyzer::llm::validate_model(&key, &base, &selected_model, &headers).await)
+}
+
 fn parse_quarter(label: &str) -> Option<(i32, u32)> {
     let (year, quarter) = label.split_once("-Q")?;
     Some((year.parse().ok()?, quarter.parse().ok()?))

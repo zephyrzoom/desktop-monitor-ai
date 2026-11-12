@@ -58,7 +58,9 @@ fn parse_db_timestamp(timestamp: &str) -> Option<DateTime<Local>> {
     FORMATS.iter().find_map(|format| {
         chrono::NaiveDateTime::parse_from_str(timestamp, format)
             .ok()
-            .map(|naive| DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).with_timezone(&Local))
+            .map(|naive| {
+                DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).with_timezone(&Local)
+            })
     })
 }
 
@@ -941,7 +943,11 @@ pub async fn rerun_daily(rt: &Arc<Runtime>, days: Option<i64>) -> RerunOutcome {
             break;
         }
 
-        let action = if existing.contains(date) { "重算" } else { "补算" };
+        let action = if existing.contains(date) {
+            "重算"
+        } else {
+            "补算"
+        };
         emit_progress(rt, format!("正在{action} {date}"), index + 1, total);
         match analyze_daily(rt, date).await {
             Ok(Some(_)) => {
