@@ -44,7 +44,7 @@ export function Today(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [appUsageExpanded, setAppUsageExpanded] = useState(false)
   const [today, setToday] = useState(getTodayStr)
-  const { analyzing, analyzingDate, analysisProgress, triggerAnalysis, onAnalysisComplete } =
+  const { analyzing, analyzingDate, analysisProgress, busy, triggerAnalysis, onAnalysisComplete } =
     useAnalysis()
 
   useEffect(() => {
@@ -142,10 +142,10 @@ export function Today(): React.JSX.Element {
             type="button"
             className="button button-primary"
             onClick={handleAnalyze}
-            disabled={analyzing}
+            disabled={busy}
           >
             <Icon name="sparkles" size={15} />
-            {analyzing ? '分析中…' : '立即分析'}
+            {busy ? (analyzing && analyzingDate === today ? '分析中…' : '分析进行中…') : '立即分析'}
           </button>
         }
       />
@@ -266,7 +266,7 @@ export function Today(): React.JSX.Element {
           <WorkItemList workItems={analysisResult.work_items} />
         </>
       ) : (
-        !analyzing && (
+        !(analyzing && analyzingDate === today) && (
           <EmptyState
             icon="sparkles"
             title="今天还没有分析结果"

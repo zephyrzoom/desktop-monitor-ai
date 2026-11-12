@@ -7,6 +7,10 @@ interface DatePickerProps {
   onChange: (date: string) => void
   /** 已有日报的日期（YYYY-MM-DD），会在日历对应日期下方打点 */
   markedDates?: Set<string>
+  /** 正在分析的日期，会在日历格子上显示转圈标记 */
+  analyzingDate?: string | null
+  /** 分析进行中：锁定日期切换，避免误以为可以同时分析多天 */
+  disabled?: boolean
 }
 
 const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
@@ -34,7 +38,13 @@ function buildMonthGrid(year: number, month: number): (string | null)[] {
 }
 
 /** 日期选择器：自定义日历，支持在已有日报的日期上打点标记 */
-export function DatePicker({ value, onChange, markedDates }: DatePickerProps): React.JSX.Element {
+export function DatePicker({
+  value,
+  onChange,
+  markedDates,
+  analyzingDate,
+  disabled = false
+}: DatePickerProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState(() => {
     const date = parseDate(value)
@@ -64,6 +74,7 @@ export function DatePicker({ value, onChange, markedDates }: DatePickerProps): R
   const cells = useMemo(() => buildMonthGrid(view.year, view.month), [view.year, view.month])
 
   function toggle(): void {
+    if (disabled) return
     if (!open) {
       // 每次打开都回到选中日期所在的月份
       const date = parseDate(value)
@@ -90,8 +101,10 @@ export function DatePicker({ value, onChange, markedDates }: DatePickerProps): R
         type="button"
         className={`date-picker-trigger${open ? ' open' : ''}`}
         onClick={toggle}
+        disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
+        title={disabled ? '分析进行中，完成后才能切换日期' : undefined}
       >
         <Icon name="calendar" size={15} />
         <span className="date-picker-value">{value}</span>
@@ -135,11 +148,13 @@ export function DatePicker({ value, onChange, markedDates }: DatePickerProps): R
               const hasReport = markedDates?.has(cell) ?? false
               const isSelected = cell === value
               const isToday = cell === today
+              const isAnalyzing = cell === analyzingDate
               const classes = [
                 'calendar-day',
                 isSelected ? 'is-selected' : '',
                 isToday ? 'is-today' : '',
-                hasReport ? 'has-report' : ''
+                hasReport ? 'has-report' : '',
+                isAnalyzing ? 'is-analyzing' : ''
               ]
                 .filter(Boolean)
                 .join(' ')
@@ -150,11 +165,15 @@ export function DatePicker({ value, onChange, markedDates }: DatePickerProps): R
                   key={cell}
                   className={classes}
                   onClick={() => select(cell)}
-                  title={hasReport ? `${cell} · 已有日报` : cell}
+                  disabled={disabled}
+                  title={
+                    isAnalyzing ? `${cell} · 正在分析` : hasReport ? `${cell} · 已有日报` : cell
+                  }
                   aria-current={isSelected ? 'date' : undefined}
                 >
                   {Number(cell.slice(8))}
                   {hasReport && <span className="calendar-dot" aria-hidden="true" />}
+                  {isAnalyzing && <span className="calendar-spinner" aria-hidden="true" />}
                 </button>
               )
             })}
@@ -165,7 +184,18 @@ export function DatePicker({ value, onChange, markedDates }: DatePickerProps): R
               <span className="calendar-dot" aria-hidden="true" />
               已有日报
             </span>
-            <button type="button" className="calendar-today" onClick={() => select(today)}>
+            {analyzingDate && (
+              <span className="calendar-legend">
+                <span className="calendar-spinner is-inline" aria-hidden="true" />
+                分析中
+              </span>
+            )}
+            <button
+              type="button"
+              className="calendar-today"
+              onClick={() => select(today)}
+              disabled={disabled}
+            >
               回到今天
             </button>
           </div>

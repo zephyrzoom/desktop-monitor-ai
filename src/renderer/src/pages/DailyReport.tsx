@@ -34,8 +34,11 @@ export function DailyReport(): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
   const {
     analyzing,
+    analyzingDate,
     analysisProgress,
     rerunning,
+    busy,
+    busyLabel,
     triggerAnalysis,
     triggerRerun,
     onAnalysisComplete
@@ -159,7 +162,7 @@ export function DailyReport(): React.JSX.Element {
               type="button"
               className="button button-secondary"
               onClick={() => setMenuOpen((open) => !open)}
-              disabled={batchBusy || analyzing}
+              disabled={busy}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               title="批量处理历史日报：缺失的补上，已有的覆盖重写（不含今天）"
@@ -177,6 +180,7 @@ export function DailyReport(): React.JSX.Element {
                     key={range.label}
                     role="menuitem"
                     className="menu-item"
+                    disabled={busy}
                     onClick={() => void handleRerun(range.days, range.label)}
                   >
                     <span className="menu-item-label">{range.label}</span>
@@ -190,9 +194,27 @@ export function DailyReport(): React.JSX.Element {
         }
       />
 
+      {/* 放在页面顶部：分析时即使下方已有很长的日报内容，也能一眼看到进度 */}
+      {busy && (
+        <ProgressPanel
+          label={
+            rerunning && runningRange
+              ? `正在批量补算（${runningRange}）`
+              : (busyLabel ?? '正在分析')
+          }
+          progress={analysisProgress}
+        />
+      )}
+
       <section className="card toolbar-card">
         <div className="toolbar">
-          <DatePicker value={selectedDate} onChange={setSelectedDate} markedDates={analyzedDates} />
+          <DatePicker
+            value={selectedDate}
+            onChange={setSelectedDate}
+            markedDates={analyzedDates}
+            analyzingDate={analyzingDate}
+            disabled={busy}
+          />
           {allAnalyses.length > 0 && (
             <>
               <span className="toolbar-divider" aria-hidden="true" />
@@ -204,6 +226,7 @@ export function DailyReport(): React.JSX.Element {
                     key={a.date}
                     className={`pill${a.date === selectedDate ? ' active' : ''}`}
                     onClick={() => setSelectedDate(a.date)}
+                    disabled={busy}
                     title={formatDateLabel(a.date)}
                   >
                     {a.date.slice(5)}
@@ -237,13 +260,6 @@ export function DailyReport(): React.JSX.Element {
         </Alert>
       )}
 
-      {batchBusy && (
-        <ProgressPanel
-          label={runningRange ? `正在批量补算（${runningRange}）` : '正在批量补算'}
-          progress={analysisProgress}
-        />
-      )}
-
       {loading ? (
         <div className="page-loading">
           <span className="spinner" />
@@ -261,11 +277,11 @@ export function DailyReport(): React.JSX.Element {
                 type="button"
                 className="button button-ghost button-sm"
                 onClick={handleAnalyze}
-                disabled={analyzing}
+                disabled={busy}
                 title="用当前数据重新分析这一天"
               >
                 <Icon name="refresh" size={14} />
-                重新分析
+                {analyzing && analyzingDate === selectedDate ? '分析中…' : '重新分析'}
               </button>
             </div>
             <ol className="summary-list">
@@ -291,16 +307,14 @@ export function DailyReport(): React.JSX.Element {
               type="button"
               className="button button-primary"
               onClick={handleAnalyze}
-              disabled={analyzing}
+              disabled={busy}
             >
               <Icon name="sparkles" size={15} />
-              {analyzing ? '分析中…' : '分析这一天'}
+              {busy ? (analyzingDate === selectedDate ? '分析中…' : '分析进行中…') : '分析这一天'}
             </button>
           }
         />
       )}
-
-      {analyzing && <ProgressPanel label="正在分析该日期" progress={analysisProgress} />}
     </div>
   )
 }

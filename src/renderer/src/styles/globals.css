@@ -318,6 +318,47 @@ a {
   user-select: text;
 }
 
+/* 全局「正在分析」提示：无论停在哪个页面都能看到后端仍在执行任务 */
+.analysis-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent-ring);
+  border-radius: 9px;
+  background-color: var(--accent-soft);
+  color: var(--accent-fg);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.analysis-indicator .spinner {
+  border-top-color: var(--accent-fg);
+}
+
+.analysis-indicator-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 分析进行中禁用日期切换等触发入口，避免误以为可并行分析 */
+.date-picker-trigger:disabled,
+.calendar-day:disabled,
+.pill:disabled,
+.calendar-today:disabled,
+.menu-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.calendar-day:disabled:not(.is-selected):hover {
+  background-color: transparent;
+}
+
 .main {
   flex: 1;
   min-width: 0;
@@ -1733,6 +1774,37 @@ select.input {
   background-color: #fff;
 }
 
+/* 正在分析的那一天：右上角小转圈 + 高亮边框 */
+.calendar-day.is-analyzing {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.calendar-day.is-selected.is-analyzing {
+  box-shadow: none;
+}
+
+.calendar-spinner {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--accent-ring);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+.calendar-day.is-selected .calendar-spinner {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+
+.calendar-spinner.is-inline {
+  position: static;
+  flex-shrink: 0;
+}
+
 .calendar-foot {
   display: flex;
   align-items: center;
@@ -1844,8 +1916,19 @@ select.input {
   .brand-text,
   .nav-group-label,
   .nav-item span,
-  .sidebar-footer {
+  .version-badge,
+  .analysis-indicator-text {
     display: none;
+  }
+
+  .sidebar-footer {
+    display: flex;
+    justify-content: center;
+  }
+
+  .analysis-indicator {
+    padding: 7px;
+    margin-bottom: 0;
   }
 
   .brand {

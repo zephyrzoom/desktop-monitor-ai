@@ -1043,13 +1043,14 @@ async fn generate_finished_periods(rt: &Arc<Runtime>) {
 }
 
 async fn run_scheduled(rt: Arc<Runtime>) {
-    if !rt.try_begin_analysis() {
+    let config = rt.config.analysis();
+    let target = scheduled_target_date(Local::now(), &config.schedule_date_mode);
+
+    if !rt.begin_analysis("scheduled", &target) {
         logger::warn("[AnalysisScheduler] 已有分析任务在执行，跳过本次定时分析");
         return;
     }
 
-    let config = rt.config.analysis();
-    let target = scheduled_target_date(Local::now(), &config.schedule_date_mode);
     logger::info(format!(
         "[AnalysisScheduler] 定时触发分析: {target}（日期模式 {}）",
         config.schedule_date_mode

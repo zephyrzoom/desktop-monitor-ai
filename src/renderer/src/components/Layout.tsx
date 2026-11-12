@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Icon, type IconName } from './Icon'
+import { useAnalysis } from '../contexts/AnalysisContext'
 import { getBuildTime, getVersionLabel } from '../lib/version'
 
 interface LayoutProps {
@@ -36,6 +37,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
 export function Layout({ children }: LayoutProps): React.JSX.Element {
   const location = useLocation()
   const buildTime = getBuildTime()
+  const { busy, busyLabel } = useAnalysis()
 
   return (
     <div className="app-shell">
@@ -73,6 +75,17 @@ export function Layout({ children }: LayoutProps): React.JSX.Element {
         </nav>
 
         <div className="sidebar-footer">
+          {busy && (
+            <div
+              className="analysis-indicator"
+              role="status"
+              aria-live="polite"
+              title={busyLabel ?? undefined}
+            >
+              <span className="spinner" aria-hidden="true" />
+              <span className="analysis-indicator-text">{busyLabel ?? '正在分析'}</span>
+            </div>
+          )}
           <span className="version-badge" title={buildTime ? `构建于 ${buildTime}` : undefined}>
             {getVersionLabel()}
           </span>

@@ -23,7 +23,8 @@ export function YearlySummary(): React.JSX.Element {
   const [summary, setSummary] = useState<PeriodicSummary | null>(null)
   const [allSummaries, setAllSummaries] = useState<PeriodicSummary[]>([])
   const [loading, setLoading] = useState(false)
-  const { generating, generatingLabel, triggerPeriodicSummary, onAnalysisComplete } = useAnalysis()
+  const { generating, generatingLabel, busy, triggerPeriodicSummary, onAnalysisComplete } =
+    useAnalysis()
 
   useEffect(() => {
     loadAllSummaries()
@@ -99,10 +100,10 @@ export function YearlySummary(): React.JSX.Element {
               type="button"
               className="button button-primary"
               onClick={handleGenerate}
-              disabled={!selectedYear || generating}
+              disabled={!selectedYear || busy}
             >
               <Icon name="sparkles" size={15} />
-              {generating ? '生成中…' : '生成汇总'}
+              {generating ? '生成中…' : busy ? '分析进行中…' : '生成汇总'}
             </button>
           </>
         }
@@ -209,10 +210,10 @@ export function YearlySummary(): React.JSX.Element {
               type="button"
               className="button button-primary"
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={busy}
             >
               <Icon name="sparkles" size={15} />
-              {generating ? '生成中…' : '生成年度汇总'}
+              {generating ? '生成中…' : busy ? '分析进行中…' : '生成年度汇总'}
             </button>
           }
         />

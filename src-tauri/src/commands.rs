@@ -109,6 +109,15 @@ pub fn data_today_stats(runtime: State<'_, Arc<Runtime>>, date: String) -> Resul
 
 // ---------------- 分析 ----------------
 
+/// 渲染层启动（或窗口重载）时查询当前分析任务，避免漏掉已经开始的状态。
+#[tauri::command]
+pub fn analysis_status(runtime: State<'_, Arc<Runtime>>) -> Value {
+    match runtime.analysis_status() {
+        Some(status) => serde_json::to_value(status).unwrap_or(Value::Null),
+        None => Value::Null,
+    }
+}
+
 #[tauri::command]
 pub async fn analysis_trigger(
     runtime: State<'_, Arc<Runtime>>,
@@ -116,7 +125,7 @@ pub async fn analysis_trigger(
 ) -> Result<Value, String> {
     let runtime = runtime.inner().clone();
 
-    if !runtime.try_begin_analysis() {
+    if !runtime.begin_analysis("daily", &date) {
         logger::warn("已有分析任务在执行，忽略本次触发");
         return Ok(json!({ "status": "busy", "date": date }));
     }
@@ -141,7 +150,10 @@ pub async fn analysis_rerun(
 ) -> Result<Value, String> {
     let runtime = runtime.inner().clone();
 
-    if !runtime.try_begin_analysis() {
+    let target = days
+        .map(|d| d.to_string())
+        .unwrap_or_else(|| "all".to_string());
+    if !runtime.begin_analysis("rerun", &target) {
         logger::warn("已有分析任务在执行，忽略本次批量补算");
         return Ok(json!({ "status": "busy", "total": 0, "succeeded": 0, "filled": 0 }));
     }
@@ -164,7 +176,7 @@ pub async fn summary_trigger(
 ) -> Result<Value, String> {
     let runtime = runtime.inner().clone();
 
-    if !runtime.try_begin_analysis() {
+    if !runtime.begin_analysis("summary", &period_label) {
         logger::warn("已有分析任务在执行，忽略本次周期汇总");
         return Ok(json!({ "status": "busy", "periodLabel": period_label }));
     }

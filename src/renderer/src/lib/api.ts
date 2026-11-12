@@ -12,6 +12,12 @@ export interface AnalysisProgressPayload {
   total: number
 }
 
+/** 后端唯一的分析任务：daily / rerun / summary / scheduled，target 为日期或周期标签 */
+export interface AnalysisStatusPayload {
+  kind: 'daily' | 'rerun' | 'summary' | 'scheduled'
+  target: string
+}
+
 /** 设置页当前表单里的 AI 接口参数（可能尚未保存） */
 export type ModelQuery = {
   apiKey: string
@@ -66,6 +72,8 @@ export const api = {
   getTodayStats: (date: string) => invoke<unknown>('data_today_stats', { date }),
 
   // AI 分析
+  /** 查询后端当前任务，窗口重载后也能恢复「正在分析」的显示 */
+  getAnalysisStatus: () => invoke<AnalysisStatusPayload | null>('analysis_status'),
   triggerAnalysis: (date: string) =>
     invoke<{ status: string; date: string }>('analysis_trigger', { date }),
   /** 批量补算/重算：days 为 null 表示全部历史；范围内缺失的补上、已有的覆盖 */
@@ -74,6 +82,11 @@ export const api = {
     invoke<{ status: string; periodLabel: string }>('summary_trigger', { periodLabel }),
   onAnalysisProgress: (callback: (progress: AnalysisProgressPayload) => void) =>
     subscribe<AnalysisProgressPayload>('analysis:status', callback),
+  /** 任务生命周期：前端据此锁定所有触发入口，定时分析也能被看见 */
+  onAnalysisStarted: (callback: (status: AnalysisStatusPayload) => void) =>
+    subscribe<AnalysisStatusPayload>('analysis:started', callback),
+  onAnalysisFinished: (callback: (status: AnalysisStatusPayload | null) => void) =>
+    subscribe<AnalysisStatusPayload | null>('analysis:finished', callback),
   onAnalysisComplete: (callback: (date: string) => void) =>
     subscribe<string>('analysis:result', callback),
   /** 定时任务自动生成季度/年度汇总后通知，payload 为周期标签（如 2026-Q3 / 2025） */
