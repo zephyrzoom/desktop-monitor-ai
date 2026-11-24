@@ -301,7 +301,7 @@ pub fn config_set(
 
     runtime.config.set_section(&key, value)?;
 
-    // 保留天数改小后立即清理，不用等下一次启动或每小时复查
+    // 保留天数改小后立即清理，不用等下一次启动或凌晨的定时清理
     if key == "cleanup" {
         let rt = runtime.inner().clone();
         tauri::async_runtime::spawn_blocking(move || {

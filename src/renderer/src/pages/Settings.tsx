@@ -853,7 +853,7 @@ export function Settings(): React.JSX.Element {
               </button>
             </div>
             <span className={`field-hint${cleanupFailed ? ' field-hint-error' : ''}`}>
-              {cleanupHint || '运行期间每小时自动清理一次；改小保留天数并保存后会立刻清理'}
+              {cleanupHint || '每天凌晨 3:00 自动清理一次；改小保留天数并保存后会立刻清理'}
             </span>
           </div>
         </div>

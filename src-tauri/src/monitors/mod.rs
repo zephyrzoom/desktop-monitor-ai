@@ -18,8 +18,8 @@ const STATUS_ERROR: u8 = 2;
 
 const IDLE_POLL_SECS: u64 = 10;
 const SCHEDULE_POLL_SECS: u64 = 60;
-/// 过期数据清理的复查间隔
-const CLEANUP_INTERVAL_SECS: u64 = 60 * 60;
+/// 每天执行过期数据清理的小时（本地时间）
+const CLEANUP_HOUR: u32 = 3;
 /// 两次空闲轮询间隔明显超出预期，视为系统休眠/挂起后恢复
 const SUSPEND_GAP_SECS: u64 = 30;
 
@@ -249,16 +249,34 @@ async fn watch_window_changes(
     }
 }
 
-/// 周期清理：应用常年后台常驻，只在启动时清理会让过期数据一直堆在磁盘上，
-/// 因此运行期间每小时复查一次（保留天数改小后也能在一小时内生效）。
+/// 周期清理：应用常年后台常驻，只在启动时清理会让过期数据一直堆在磁盘上。
+///
+/// 过期判断按「天」为粒度，所以每天跑一次就够；固定在凌晨执行，
+/// 避开晚间 23:00 的日报分析和用户白天的使用高峰。
 async fn watch_cleanup(rt: Arc<Runtime>, shared: Arc<Shared>) {
     loop {
-        tokio::time::sleep(Duration::from_secs(CLEANUP_INTERVAL_SECS)).await;
+        tokio::time::sleep(delay_until_next_cleanup(Local::now())).await;
         if !shared.is_running() {
             break;
         }
         screenshot::cleanup(&rt);
     }
+}
+
+/// 距离下一次清理时刻（本地时间每天的 `CLEANUP_HOUR` 点）还有多久。
+///
+/// 已经过了今天的清理时刻就顺延到明天；返回值至少 1 分钟，
+/// 避免刚过点启动时反复触发。
+fn delay_until_next_cleanup(now: chrono::DateTime<Local>) -> Duration {
+    let today = now.date_naive();
+    let mut target = today.and_hms_opt(CLEANUP_HOUR, 0, 0).unwrap();
+    if now.naive_local() >= target {
+        target = (today + chrono::Duration::days(1))
+            .and_hms_opt(CLEANUP_HOUR, 0, 0)
+            .unwrap();
+    }
+    let secs = (target - now.naive_local()).num_seconds().max(60);
+    Duration::from_secs(secs as u64)
 }
 
 async fn watch_timer(rt: Arc<Runtime>, shared: Arc<Shared>, interval_ms: u64) {
@@ -492,7 +510,35 @@ impl MonitorManager {
 
 #[cfg(test)]
 mod tests {
-    use super::within_monitoring_window;
+    use super::{delay_until_next_cleanup, within_monitoring_window};
+    use chrono::{Local, TimeZone, Timelike};
+
+    fn local_at(hour: u32, minute: u32) -> chrono::DateTime<Local> {
+        let naive = chrono::NaiveDate::from_ymd_opt(2026, 11, 24)
+            .unwrap()
+            .and_hms_opt(hour, minute, 0)
+            .unwrap();
+        Local.from_local_datetime(&naive).unwrap()
+    }
+
+    #[test]
+    fn cleanup_waits_until_next_three_am() {
+        use std::time::Duration;
+
+        // 凌晨 2:00 启动 → 1 小时后就是当天的清理时刻
+        assert_eq!(
+            delay_until_next_cleanup(local_at(2, 0)),
+            Duration::from_secs(3600)
+        );
+
+        // 白天启动 → 顺延到第二天凌晨 3 点（24:00 之前的剩余时间 + 3 小时）
+        let wait = delay_until_next_cleanup(local_at(15, 30));
+        assert_eq!(wait, Duration::from_secs(11 * 3600 + 30 * 60));
+
+        // 刚好到点：顺延到第二天，不会在同一分钟里反复触发
+        let wait = delay_until_next_cleanup(local_at(3, 0));
+        assert_eq!(wait, Duration::from_secs(24 * 3600));
+    }
 
     #[test]
     fn window_is_half_open_so_end_minute_excluded() {
