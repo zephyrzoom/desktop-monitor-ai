@@ -155,12 +155,50 @@ fn encode_jpeg(image: &RgbaImage) -> Option<Vec<u8>> {
     }
 }
 
+/// 一次清理的结果，前端「立即清理」用它给出反馈，也用于日志。
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupReport {
+    /// 实际生效的保留天数
+    pub retention_days: i64,
+    /// 早于该本地日期（不含）的数据被视为过期
+    pub cutoff: String,
+    pub deleted_records: usize,
+    pub deleted_windows: usize,
+    pub deleted_tasks: usize,
+    pub deleted_files: usize,
+    pub deleted_dirs: usize,
+    /// 删除失败的截图文件数（通常是权限或文件已被移走）
+    pub failed_files: usize,
+}
+
+/// 目录名是否为 `YYYY-MM-DD`，只有这种归档目录才会被整目录清理。
+fn is_date_dir(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(i, b)| i == 4 || i == 7 || b.is_ascii_digit())
+}
+
 /// 按保留天数清理过期截图、窗口记录与任务记忆。
-pub fn cleanup(rt: &Runtime) {
+///
+/// 「保留 N 天」= 保留今天在内的最近 N 个自然日，所以过期分界是 `今天 - (N-1)`；
+/// 早期版本用的是 `今天 - N`，会让实际保留天数比配置多一天。
+pub fn cleanup(rt: &Runtime) -> CleanupReport {
     let retention_days = rt.config.cleanup().retention_days.max(1);
-    let cutoff = (Local::now() - chrono::Duration::days(retention_days))
+    let cutoff = (Local::now().date_naive() - chrono::Duration::days(retention_days - 1))
         .format("%Y-%m-%d")
         .to_string();
+
+    let mut report = CleanupReport {
+        retention_days,
+        cutoff: cutoff.clone(),
+        ..CleanupReport::default()
+    };
 
     let dir = rt.screenshots_dir();
 
@@ -168,8 +206,15 @@ pub fn cleanup(rt: &Runtime) {
         Ok(expired) => {
             for shot in expired {
                 let file = dir.join(&shot.file_path);
-                if file.exists() {
-                    let _ = fs::remove_file(file);
+                if !file.exists() {
+                    continue;
+                }
+                match fs::remove_file(&file) {
+                    Ok(()) => report.deleted_files += 1,
+                    Err(err) => {
+                        report.failed_files += 1;
+                        logger::warn(format!("删除截图文件失败（{}）：{err}", file.display()));
+                    }
                 }
             }
         }
@@ -177,41 +222,75 @@ pub fn cleanup(rt: &Runtime) {
     }
 
     match rt.db.delete_screenshots_before_date(&cutoff) {
-        Ok(0) => {}
-        Ok(count) => logger::info(format!("清理过期截图 {count} 条（早于 {cutoff}）")),
-        Err(err) => logger::error(format!("清理过期截图失败：{err}")),
+        Ok(count) => report.deleted_records = count,
+        Err(err) => logger::error(format!("清理过期截图记录失败：{err}")),
     }
 
     match rt.db.delete_active_windows_before_date(&cutoff) {
-        Ok(0) => {}
-        Ok(count) => logger::info(format!("清理过期窗口记录 {count} 条（早于 {cutoff}）")),
+        Ok(count) => report.deleted_windows = count,
         Err(err) => logger::error(format!("清理过期窗口记录失败：{err}")),
     }
 
     match rt.db.delete_task_memories_before_date(&cutoff) {
-        Ok(0) => {}
-        Ok(count) => logger::info(format!("清理过期任务记忆 {count} 条（早于 {cutoff}）")),
+        Ok(count) => report.deleted_tasks = count,
         Err(err) => logger::error(format!("清理过期任务记忆失败：{err}")),
     }
 
-    // 删除过期的空日期目录。
-    // 目录名按 UTC 日期命名，而 cutoff 是本地日期，本地 00:00-08:00 时前者会比后者早一天，
-    // 因此只删除已经清空的目录，避免误删仍有未过期截图的目录。
+    // 兜底：整目录清扫过期的日期归档目录。
+    // 数据库里没有记录的文件（早期版本写入的 png、写库失败残留的 jpg）不会被上面的
+    // 按记录删除覆盖到，长年累月就会一直留在磁盘上。
     if let Ok(entries) = fs::read_dir(&dir) {
         for entry in entries.flatten() {
-            let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
-            if path.is_dir() && name < cutoff {
-                let _ = fs::remove_dir(path);
+            if name.as_str() >= cutoff.as_str() || !is_date_dir(&name) {
+                continue;
+            }
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            match fs::remove_dir_all(&path) {
+                Ok(()) => report.deleted_dirs += 1,
+                Err(err) => logger::warn(format!("删除过期目录失败（{}）：{err}", path.display())),
             }
         }
     }
+
+    if report.deleted_records > 0
+        || report.deleted_files > 0
+        || report.deleted_dirs > 0
+        || report.deleted_windows > 0
+        || report.deleted_tasks > 0
+    {
+        logger::info(format!(
+            "清理过期数据（早于 {cutoff}，保留 {retention_days} 天）：截图记录 {} 条、文件 {} 个、目录 {} 个、窗口 {} 条、任务记忆 {} 条",
+            report.deleted_records,
+            report.deleted_files,
+            report.deleted_dirs,
+            report.deleted_windows,
+            report.deleted_tasks
+        ));
+    }
+
+    report
 }
 
 #[cfg(test)]
 mod tests {
     use super::window_center;
     use active_win_pos_rs::WindowPosition;
+
+    #[test]
+    fn date_dir_only_matches_archived_date_folders() {
+        use super::is_date_dir;
+        assert!(is_date_dir("2026-11-24"));
+        // 只认 `YYYY-MM-DD`：带后缀、分隔符不对、长度不对的目录都不能整目录删除
+        assert!(!is_date_dir("2026-11-24.bak"));
+        assert!(!is_date_dir("2026_11_24"));
+        assert!(!is_date_dir("2026-1-4"));
+        assert!(!is_date_dir("screenshots"));
+        assert!(!is_date_dir(""));
+    }
 
     #[test]
     fn window_center_is_geometric_middle() {

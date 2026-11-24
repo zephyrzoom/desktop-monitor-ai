@@ -2,7 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { Alert } from '../components/Alert'
 import { Icon } from '../components/Icon'
-import type { ModelQuery, ModelValidation, ModelValidationQuery } from '../lib/api'
+import type {
+  CleanupResult,
+  ModelQuery,
+  ModelValidation,
+  ModelValidationQuery
+} from '../lib/api'
 import { APP_VERSION, getBuildTime, getPlatformName } from '../lib/version'
 
 /** 自动模式下「分析前一天」的小时分界，需与 Rust 的 AUTO_PREVIOUS_DAY_HOUR 保持一致 */
@@ -25,6 +30,20 @@ function effectiveScheduleMode(mode: string, scheduleTime: string): 'today' | 'p
   if (mode === 'today' || mode === 'previous') return mode
   const hour = Number.parseInt(scheduleTime.split(':')[0] ?? '', 10)
   return Number.isFinite(hour) && hour < AUTO_PREVIOUS_DAY_HOUR ? 'previous' : 'today'
+}
+
+/** 把一次清理结果说成人话 */
+function describeCleanup(result: CleanupResult): string {
+  const parts: string[] = []
+  if (result.deletedFiles > 0) parts.push(`截图文件 ${result.deletedFiles} 个`)
+  if (result.deletedDirs > 0) parts.push(`日期目录 ${result.deletedDirs} 个`)
+  if (result.deletedRecords > 0) parts.push(`截图记录 ${result.deletedRecords} 条`)
+  if (result.deletedWindows > 0) parts.push(`窗口记录 ${result.deletedWindows} 条`)
+  if (result.deletedTasks > 0) parts.push(`任务记忆 ${result.deletedTasks} 条`)
+
+  if (parts.length === 0) return `没有早于 ${result.cutoff} 的过期数据`
+  const suffix = result.failedFiles > 0 ? `，另有 ${result.failedFiles} 个文件删除失败` : ''
+  return `已清理早于 ${result.cutoff} 的 ${parts.join('、')}${suffix}`
 }
 
 interface Config {
@@ -84,6 +103,10 @@ export function Settings(): React.JSX.Element {
   /** 发起验证时的参数签名：表单一改，旧结果立即失效，不必额外起 effect 清状态 */
   const [validationKey, setValidationKey] = useState('')
   const validationRequestId = useRef(0)
+  // 手动清理：进行中状态 + 结果提示（失败时标红）
+  const [cleaning, setCleaning] = useState(false)
+  const [cleanupHint, setCleanupHint] = useState('')
+  const [cleanupFailed, setCleanupFailed] = useState(false)
 
   useEffect(() => {
     async function load(): Promise<void> {
@@ -233,6 +256,24 @@ export function Settings(): React.JSX.Element {
       cleanup: { ...config.cleanup, [key]: value }
     })
     setDirty(true)
+  }
+
+  /** 立刻按已保存的保留天数清理一次，并给出结果 */
+  async function handleCleanup(): Promise<void> {
+    setCleaning(true)
+    setCleanupFailed(false)
+    try {
+      const result = await window.api.runCleanup()
+      setCleanupHint(describeCleanup(result))
+      // 未保存的保留天数不参与这次清理，提示用户先保存
+      if (dirty) setCleanupHint((hint) => `${hint}（新的保留天数需保存后生效）`)
+    } catch (err) {
+      console.error('Failed to cleanup:', err)
+      setCleanupFailed(true)
+      setCleanupHint(describeError(err, '清理失败'))
+    } finally {
+      setCleaning(false)
+    }
   }
 
   if (!config) {
@@ -740,7 +781,18 @@ export function Settings(): React.JSX.Element {
             />
             <span className="field-hint">切换窗口后等待多久再记录，避免抖动</span>
           </div>
+        </div>
+      </section>
 
+      <section className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <Icon name="folder" size={15} />
+            截图存储与保留
+          </h3>
+        </div>
+
+        <div className="form-grid">
           <div className="field field-full">
             <label className="field-label" htmlFor="screenshotsDir">
               截图存储路径
@@ -758,6 +810,7 @@ export function Settings(): React.JSX.Element {
                 type="button"
                 className="button button-secondary"
                 onClick={async () => {
+                  // 打开的是已保存的目录，改完路径记得先保存
                   const dir = await window.api.getScreenshotsDir()
                   window.api.openPath(dir as string)
                 }}
@@ -766,18 +819,9 @@ export function Settings(): React.JSX.Element {
                 打开
               </button>
             </div>
+            <span className="field-hint">留空则存到应用数据目录下的 screenshots 文件夹</span>
           </div>
-        </div>
-      </section>
 
-      <section className="card">
-        <div className="card-header">
-          <h3 className="card-title">
-            <Icon name="trash" size={15} />
-            数据清理
-          </h3>
-        </div>
-        <div className="form-grid">
           <div className="field">
             <label className="field-label" htmlFor="retentionDays">
               数据保留天数
@@ -790,7 +834,27 @@ export function Settings(): React.JSX.Element {
               value={config.cleanup.retentionDays}
               onChange={(e) => updateCleanup('retentionDays', parseInt(e.target.value))}
             />
-            <span className="field-hint">超过天数的截图与记录会被清理</span>
+            <span className="field-hint">
+              保留今天在内的最近 N 天；更早的截图文件、窗口记录与任务记忆会被删除
+            </span>
+          </div>
+
+          <div className="field">
+            <span className="field-label">过期数据清理</span>
+            <div className="inline-fields">
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={cleaning}
+                onClick={() => void handleCleanup()}
+              >
+                {cleaning ? <span className="spinner" /> : <Icon name="trash" size={14} />}
+                {cleaning ? '清理中…' : '立即清理'}
+              </button>
+            </div>
+            <span className={`field-hint${cleanupFailed ? ' field-hint-error' : ''}`}>
+              {cleanupHint || '运行期间每小时自动清理一次；改小保留天数并保存后会立刻清理'}
+            </span>
           </div>
         </div>
       </section>

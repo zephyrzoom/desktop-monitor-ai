@@ -99,6 +99,7 @@ pub fn run() {
             commands::storage_active_backend,
             commands::system_open_path,
             commands::system_get_screenshots_dir,
+            commands::cleanup_run,
             commands::app_quit,
         ])
         .build(tauri::generate_context!())

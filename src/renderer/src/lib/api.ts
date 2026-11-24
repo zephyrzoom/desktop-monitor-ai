@@ -55,6 +55,19 @@ export interface RerunResult {
   cancelled?: boolean
 }
 
+/** 一次过期数据清理的统计结果 */
+export interface CleanupResult {
+  retentionDays: number
+  /** 早于该本地日期（不含）的数据被清理 */
+  cutoff: string
+  deletedRecords: number
+  deletedWindows: number
+  deletedTasks: number
+  deletedFiles: number
+  deletedDirs: number
+  failedFiles: number
+}
+
 /**
  * 订阅后端事件，返回取消订阅函数。
  * 组件卸载可能早于 listen() 完成，这里用 disposed 标记避免泄漏监听。
@@ -133,6 +146,8 @@ export const api = {
   // 系统
   openPath: (filePath: string) => invoke<void>('system_open_path', { path: filePath }),
   getScreenshotsDir: () => invoke<string>('system_get_screenshots_dir'),
+  /** 立即按「数据保留天数」清理一次过期截图与记录 */
+  runCleanup: () => invoke<CleanupResult>('cleanup_run'),
   quit: () => invoke<void>('app_quit')
 }
 

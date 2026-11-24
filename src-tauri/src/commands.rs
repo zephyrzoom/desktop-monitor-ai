@@ -8,7 +8,7 @@ use tauri_plugin_opener::OpenerExt as _;
 use crate::analyzer;
 use crate::db::{ActiveWindow, DailyAnalysis, MonitorStatus, PeriodicSummary, Screenshot};
 use crate::logger;
-use crate::monitors::MonitorManager;
+use crate::monitors::{screenshot, MonitorManager};
 use crate::runtime::Runtime;
 
 fn autostart_enabled(app: &AppHandle) -> bool {
@@ -301,6 +301,14 @@ pub fn config_set(
 
     runtime.config.set_section(&key, value)?;
 
+    // 保留天数改小后立即清理，不用等下一次启动或每小时复查
+    if key == "cleanup" {
+        let rt = runtime.inner().clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            screenshot::cleanup(&rt);
+        });
+    }
+
     Ok(config_with_os_state(&app, &runtime))
 }
 
@@ -325,6 +333,12 @@ pub fn system_open_path(app: AppHandle, path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn system_get_screenshots_dir(runtime: State<'_, Arc<Runtime>>) -> String {
     runtime.screenshots_dir().to_string_lossy().to_string()
+}
+
+/// 立即按保留天数清理一次过期数据，返回清理统计供前端提示。
+#[tauri::command]
+pub fn cleanup_run(runtime: State<'_, Arc<Runtime>>) -> screenshot::CleanupReport {
+    screenshot::cleanup(&runtime)
 }
 
 // ---------------- 应用 ----------------

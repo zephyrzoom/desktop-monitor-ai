@@ -18,6 +18,8 @@ const STATUS_ERROR: u8 = 2;
 
 const IDLE_POLL_SECS: u64 = 10;
 const SCHEDULE_POLL_SECS: u64 = 60;
+/// 过期数据清理的复查间隔
+const CLEANUP_INTERVAL_SECS: u64 = 60 * 60;
 /// 两次空闲轮询间隔明显超出预期，视为系统休眠/挂起后恢复
 const SUSPEND_GAP_SECS: u64 = 30;
 
@@ -247,6 +249,18 @@ async fn watch_window_changes(
     }
 }
 
+/// 周期清理：应用常年后台常驻，只在启动时清理会让过期数据一直堆在磁盘上，
+/// 因此运行期间每小时复查一次（保留天数改小后也能在一小时内生效）。
+async fn watch_cleanup(rt: Arc<Runtime>, shared: Arc<Shared>) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(CLEANUP_INTERVAL_SECS)).await;
+        if !shared.is_running() {
+            break;
+        }
+        screenshot::cleanup(&rt);
+    }
+}
+
 async fn watch_timer(rt: Arc<Runtime>, shared: Arc<Shared>, interval_ms: u64) {
     loop {
         tokio::time::sleep(Duration::from_millis(interval_ms.max(60_000))).await;
@@ -395,6 +409,10 @@ impl MonitorManager {
         screenshot::cleanup(&self.rt);
 
         let mut handles = self.handles.lock().unwrap();
+        handles.push(tauri::async_runtime::spawn(watch_cleanup(
+            self.rt.clone(),
+            self.shared.clone(),
+        )));
         handles.push(tauri::async_runtime::spawn(poll_active_window(
             self.rt.clone(),
             self.shared.clone(),
